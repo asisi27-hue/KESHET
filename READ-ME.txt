@@ -1,0 +1,42 @@
+# 📦 קבצי PWA לקשת חברים
+
+## 🎯 איך להשתמש?
+
+### שלב 1: העלה את כל הקבצים ל-GitHub
+תעלה את **כל הקבצים** האלו ל-repository שלך ב-GitHub (תחליף את ה-`index.html` הקיים):
+
+```
+📁 ה-repository שלך/
+├── index.html               ← הקובץ הראשי (עדכון!)
+├── manifest.webmanifest     ← חדש!
+├── service-worker.js        ← חדש!
+└── 📁 icons/
+    ├── icon-72.png
+    ├── icon-96.png
+    ├── icon-128.png
+    ├── icon-144.png
+    ├── icon-152.png
+    ├── icon-192.png
+    ├── icon-384.png
+    ├── icon-512.png
+    ├── favicon.png
+    └── screenshot-1.png
+```
+
+### שלב 2: לך ל-PWABuilder
+1. פתח: **https://www.pwabuilder.com**
+2. הכנס את הקישור שלך: `https://asisi27-hue.github.io/[שם-repo]/`
+3. לחץ **"Start"**
+4. אם הכל ירוק ✅ — לחץ **"Package for stores"**
+5. בחר **Android** → **Generate Package**
+6. הורד את קובץ ה-`.aab` (Android App Bundle)
+
+### שלב 3: העלה ל-Google Play Console
+1. פתח חשבון מפתח: https://play.google.com/console (עלות חד-פעמית $25)
+2. צור אפליקציה חדשה
+3. העלה את ה-`.aab`
+4. מלא תיאור, צילומי מסך, ושלח לבדיקה
+
+---
+
+✅ **עכשיו האפליקציה תהיה PWA מלאה** — מותקנת על המכשיר, עובדת offline, אייקון יפה.
