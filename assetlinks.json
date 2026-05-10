@@ -1,0 +1,8 @@
+[{
+      "relation": ["delegate_permission/common.handle_all_urls"],
+      "target": {
+        "namespace": "android_app",
+        "package_name": "io.github.asisi27_hue.twa",
+        "sha256_cert_fingerprints": ["6B:65:D3:6F:36:0A:11:54:9A:FF:8D:6E:7F:01:9B:24:76:AD:9E:4C:AD:A8:82:04:8A:20:9F:A5:D8:05:A0:B3"]
+      }
+    }]
