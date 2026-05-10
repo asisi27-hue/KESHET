@@ -1,8 +1,0 @@
-[{
-      "relation": ["delegate_permission/common.handle_all_urls"],
-      "target": {
-        "namespace": "android_app",
-        "package_name": "com.maximo.keshet",
-        "sha256_cert_fingerprints": ["1D:53:77:F5:96:38:2F:07:BB:CF:C8:77:D3:12:CC:8F:D7:73:3E:06:B4:7F:70:4F:DC:9E:65:16:5F:87:A4:3B"]
-      }
-    }]
