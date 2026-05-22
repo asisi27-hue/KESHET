@@ -1,0 +1,2122 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="theme-color" content="#9B6FE8" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-title" content="קשת חברים" />
+  <meta name="description" content="אפליקציה לפיתוח מיומנויות חברתיות לילדים על הספקטרום האוטיסטי" />
+  <title>קשת חברים 🌈</title>
+  <link rel="manifest" href="manifest.webmanifest" />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🌈</text></svg>" />
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+    html, body, #root { height: 100%; width: 100%; overflow-x: hidden; }
+    body { font-family: 'Varela Round', sans-serif; background: #FFF8EE; }
+    #splash { position: fixed; inset: 0; background: linear-gradient(160deg, #E8F4FF 0%, #FFF0F8 50%, #F0FFE8 100%); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 9999; transition: opacity 0.5s; }
+    #splash h1 { font-size: 32px; color: #9B6FE8; margin-top: 12px; }
+    #splash p { color: #4A4070; margin-top: 6px; font-size: 14px; }
+    @keyframes pulse { 0%,100%{transform:scale(1);} 50%{transform:scale(1.08);} }
+    @keyframes fadeIn { from{opacity:0;transform:translateY(6px);} to{opacity:1;transform:translateY(0);} }
+    button:active { transform: scale(.97) !important; }
+    input, textarea { outline: none; }
+    a { color: #4FB3F6; }
+    ::-webkit-scrollbar { width: 5px; }
+    ::-webkit-scrollbar-thumb { background: #4FB3F655; border-radius: 99px; }
+  </style>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Varela+Round&display=swap" />
+</head>
+<body>
+  <div id="splash">
+    <div style="font-size:80px">🌈</div>
+    <h1>קשת חברים</h1>
+    <p>טוען...</p>
+  </div>
+  <div id="root"></div>
+
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+  <script type="text/babel" data-presets="react">
+const { useState, useEffect, useRef } = React;
+
+/* ── COLORS ── */
+const C = {
+  sky:"#4FB3F6", skyL:"#DEF0FF",
+  mint:"#2ECC8E", mintL:"#D5F7EB", mintD:"#1A8A5E",
+  sun:"#FFB020", sunL:"#FFF0C0", sunD:"#CC7A00",
+  coral:"#FF5757", coralL:"#FFE0E0",
+  purple:"#9B6FE8", purpleL:"#EDE0FF",
+  rose:"#F06292", roseL:"#FFE0EE",
+  teal:"#26C6DA", tealL:"#E0FAFE",
+  orange:"#FF7043", orangeL:"#FBE9E7",
+  dark:"#1A1630", mid:"#4A4070", soft:"#9088B8",
+};
+
+/* ══════════════════════════════════════════
+   TTS — לחיצה על 🔊 מקריאה את הטקסט
+══════════════════════════════════════════ */
+// סוגי קול
+const VOICE_TYPES = {
+  child:  { rate: 1.15, pitch: 1.9, label: "קול ילד 👦"  },
+  adult:  { rate: 0.9,  pitch: 1.0, label: "קול מבוגר 👨" },
+  slow:   { rate: 0.65, pitch: 1.4, label: "איטי 🐢"      },
+};
+
+// ניקוי טקסט לפני קריאה — מסיר רק אימוג'ים, שומר על כל השאר
+// מילון תיקוני הגייה ל-TTS עברי
+// המילון מתקן מילים שה-TTS קורא לא נכון
+const TTS_FIXES = [
+  // מילים בעייתיות עם שׂ/שׁ — TTS לפעמים מקריא לא נכון
+  [/\bלשחק\b/g, "לְשַׂחֵק"],
+  [/\bמשחק\b/g, "מִשְׂחָק"],
+  [/\bמשחקים\b/g, "מִשְׂחָקִים"],
+  [/\bלעשות\b/g, "לַעֲשׂוֹת"],
+  [/\bעושה\b/g, "עוֹשֶׂה"],
+  [/\bעושים\b/g, "עוֹשִׂים"],
+  [/\bלשים\b/g, "לָשִׂים"],
+  [/\bשמח\b/g, "שָׂמֵחַ"],
+  [/\bשמחה\b/g, "שִׂמְחָה"],
+  [/\bלשמוח\b/g, "לִשְׂמוֹחַ"],
+  [/\bלחפש\b/g, "לְחַפֵּשׂ"],
+  [/\bלהסתכל\b/g, "לְהִסְתַּכֵּל"],
+  
+  // מילים שלפעמים נשמעות כאנגלית
+  [/\bוואו\b/g, "וָואַוו"],
+  [/\bאופס\b/g, "אוֹפְּס"],
+  [/\bהיי\b/g, "הֵיי"],
+  [/\bביי\b/g, "בַּיי"],
+  [/\bאוקיי\b/g, "אוֹקֵיי"],
+  [/\bאוקי\b/g, "אוֹקֵיי"],
+  
+  // מילות שאלה בעייתיות
+  [/\bמה קוראים לך\b/g, "אֵיךְ קוֹרְאִים לְךָ"],
+  
+  // ראשי תיבות באנגלית
+  [/\bAI\b/g, "אֵיי אַיי"],
+  [/\bOK\b/g, "אוֹקֵיי"],
+  
+  // שייכות שלפעמים מתבלבלת זכר/נקבה
+  [/\bשלי\b/g, "שֶׁלִּי"],
+  [/\bשלך\b/g, "שֶׁלְּךָ"],
+  [/\bשלכם\b/g, "שֶׁלָּכֶם"],
+  [/\bשלהם\b/g, "שֶׁלָּהֶם"],
+  [/\bשלה\b/g, "שֶׁלָּהּ"],
+  [/\bשלו\b/g, "שֶׁלּוֹ"],
+  
+  // שמות פרטיים נפוצים שלפעמים נקראים מוזר
+  [/\bדני\b/g, "דָּנִי"],
+  [/\bנועה\b/g, "נוֹעָה"],
+  [/\bמיה\b/g, "מִיָּה"],
+  [/\bאבי\b/g, "אָבִי"],
+  [/\bתום\b/g, "תּוֹם"],
+  [/\bרון\b/g, "רוֹן"],
+  [/\bיעל\b/g, "יָעֵל"],
+  [/\bאורי\b/g, "אוּרִי"],
+  [/\bרותי\b/g, "רוּתִי"],
+  [/\bלילי\b/g, "לִילִי"],
+  
+  // מילות יחס נפוצות
+  [/\bאמא\b/g, "אִמָּא"],
+  [/\bאבא\b/g, "אַבָּא"],
+  [/\bסבתא\b/g, "סָבְתָא"],
+  [/\bסבא\b/g, "סָבָּא"],
+  [/\bאחי\b/g, "אָחִי"],
+  [/\bאחות\b/g, "אָחוֹת"],
+];
+
+function cleanTextForSpeech(text) {
+  if (!text) return "";
+  try {
+    // הסרת אימוג'ים
+    let cleaned = text.replace(/\p{Extended_Pictographic}/gu, "").replace(/\s+/g, " ").trim();
+    
+    // החלת תיקוני הגייה
+    for (const [pattern, replacement] of TTS_FIXES) {
+      cleaned = cleaned.replace(pattern, replacement);
+    }
+    
+    return cleaned;
+  } catch (e) {
+    // fallback ללא תיקוני TTS אם משהו נכשל
+    return text.replace(/[\u{1F300}-\u{1FAFF}]|[\u{2600}-\u{27BF}]/gu, "").replace(/\s+/g, " ").trim();
+  }
+}
+
+// בדיקת פלטפורמה
+const IS_ANDROID = /Android/i.test(navigator.userAgent);
+const IS_IOS = /iPhone|iPad|iPod/i.test(navigator.userAgent);
+
+function loadVoices() {
+  return new Promise((resolve) => {
+    if (!window.speechSynthesis) { resolve([]); return; }
+    let voices = window.speechSynthesis.getVoices();
+    if (voices.length > 0) { availableVoices = voices; resolve(voices); return; }
+    
+    // אנדרואיד טוען קולות באיחור
+    let resolved = false;
+    const finish = (vs) => { if (!resolved) { resolved = true; availableVoices = vs; resolve(vs); } };
+    
+    window.speechSynthesis.onvoiceschanged = () => {
+      const vs = window.speechSynthesis.getVoices();
+      if (vs.length > 0) finish(vs);
+    };
+    
+    // נסה כמה פעמים — אנדרואיד לפעמים זקוק לזה
+    let attempts = 0;
+    const tryAgain = () => {
+      attempts++;
+      const vs = window.speechSynthesis?.getVoices() || [];
+      if (vs.length > 0) finish(vs);
+      else if (attempts < 10) setTimeout(tryAgain, 300);
+      else finish([]);
+    };
+    setTimeout(tryAgain, 100);
+  });
+}
+
+function readAloud(text, type) {
+  if (!text) return false;
+  if (!window.speechSynthesis) {
+    console.warn("Browser does not support speechSynthesis");
+    return false;
+  }
+  try {
+    if (window.speechSynthesis.paused) window.speechSynthesis.resume();
+    window.speechSynthesis.cancel();
+    
+    if (availableVoices.length === 0) {
+      availableVoices = window.speechSynthesis.getVoices() || [];
+    }
+    
+    setTimeout(() => {
+      // נקה אימוג'ים, אבל אם נשאר ריק — השתמש בטקסט המקורי
+      let cleanText;
+      try {
+        cleanText = cleanTextForSpeech(text);
+        if (!cleanText || cleanText.length < 1) cleanText = text;
+      } catch (e) {
+        cleanText = text;
+      }
+      
+      const u = new SpeechSynthesisUtterance(cleanText);
+      const v = VOICE_TYPES[type || currentVoiceType] || VOICE_TYPES.child;
+      u.rate = v.rate;
+      u.pitch = v.pitch;
+      u.volume = 1;
+      u.lang = "he-IL";
+      
+      const voices = availableVoices.length ? availableVoices : (window.speechSynthesis.getVoices() || []);
+      
+      // חיפוש קול עברי
+      const heVoice = voices.find(vc => vc.lang === "he-IL") || voices.find(vc => vc.lang?.startsWith("he"));
+      if (heVoice) {
+        u.voice = heVoice;
+        u.lang = heVoice.lang;
+      }
+      
+      u.onerror = (ev) => {
+        console.warn("TTS error:", ev.error || ev);
+        // ניסיון fallback פשוט בלי לבחור קול
+        try {
+          const fallback = new SpeechSynthesisUtterance(cleanText);
+          fallback.lang = "he-IL";
+          fallback.rate = v.rate;
+          fallback.pitch = v.pitch;
+          fallback.volume = 1;
+          window.speechSynthesis.speak(fallback);
+        } catch (e) {
+          console.warn("Fallback failed:", e);
+        }
+      };
+      
+      window.speechSynthesis.speak(u);
+    }, 100);
+    
+    return true;
+  } catch (e) {
+    console.warn("TTS error:", e);
+    return false;
+  }
+}
+
+function ConsentScreen({ onAccept }) {
+  const [role, setRole] = useState(null); // "parent" | "child"
+  const [agreed, setAgreed] = useState(false);
+  const [showPolicy, setShowPolicy] = useState(false);
+
+  const handleProceed = () => {
+    if (role && agreed) onAccept();
+  };
+
+  return (
+    <div style={{
+      position: "fixed",
+      inset: 0,
+      background: "linear-gradient(160deg, #E8F4FF 0%, #FFF0F8 50%, #F0FFE8 100%)",
+      zIndex: 10000,
+      overflowY: "auto",
+      padding: "20px 16px",
+      direction: "rtl",
+      fontFamily: "'Varela Round', sans-serif",
+    }}>
+      <div style={{ maxWidth: 540, margin: "0 auto", textAlign: "center" }}>
+        
+        {/* כותרת */}
+        <div style={{ marginBottom: 16, marginTop: 20 }}>
+          <div style={{ fontSize: 64, marginBottom: 8 }}>🌈</div>
+          <h1 style={{ fontSize: 32, color: C.purple, marginBottom: 6, fontWeight: 900 }}>
+            ברוכים הבאים!
+          </h1>
+          <p style={{ fontSize: 16, color: C.mid, fontWeight: 500 }}>
+            לפני שמתחילים, צריך להגדיר משהו קצר 💜
+          </p>
+        </div>
+
+        {/* בחירת תפקיד */}
+        {!role && (
+          <div style={{ animation: "fadeIn .4s ease" }}>
+            <h2 style={{ fontSize: 18, color: C.dark, marginBottom: 16, fontWeight: 700 }}>
+              מי משתמש באפליקציה עכשיו?
+            </h2>
+
+            <button onClick={() => setRole("parent")}
+              style={{
+                width: "100%",
+                background: "#fff",
+                border: `3px solid ${C.purple}`,
+                borderRadius: 18,
+                padding: "20px 18px",
+                marginBottom: 12,
+                cursor: "pointer",
+                textAlign: "right",
+                display: "flex",
+                alignItems: "center",
+                gap: 14,
+                boxShadow: `0 6px 18px ${C.purple}33`,
+                transition: "all 0.3s",
+              }}>
+              <div style={{ fontSize: 44 }}>👨‍👩‍👧</div>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: 18, fontWeight: 700, color: C.dark, marginBottom: 4 }}>
+                  אני הורה / אפוטרופוס
+                </div>
+                <div style={{ fontSize: 13, color: C.mid }}>
+                  אני מבוגר, מבקש לבדוק / להשתמש עבור הילד שלי
+                </div>
+              </div>
+            </button>
+
+            <button onClick={() => setRole("child")}
+              style={{
+                width: "100%",
+                background: "#fff",
+                border: `3px solid ${C.coral}`,
+                borderRadius: 18,
+                padding: "20px 18px",
+                marginBottom: 16,
+                cursor: "pointer",
+                textAlign: "right",
+                display: "flex",
+                alignItems: "center",
+                gap: 14,
+                boxShadow: `0 6px 18px ${C.coral}33`,
+                transition: "all 0.3s",
+              }}>
+              <div style={{ fontSize: 44 }}>👶</div>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: 18, fontWeight: 700, color: C.dark, marginBottom: 4 }}>
+                  אני ילד / ילדה
+                </div>
+                <div style={{ fontSize: 13, color: C.mid }}>
+                  צריך אישור הורה כדי להמשיך
+                </div>
+              </div>
+            </button>
+
+            <div style={{ fontSize: 12, color: C.soft, marginTop: 14, lineHeight: 1.6, padding: "10px 14px", background: "#fff", borderRadius: 12 }}>
+              💡 <strong>למה זה חשוב?</strong><br/>
+              אנחנו מחויבים להגן על הפרטיות של ילדים. בהתאם לחוק, ילדים מתחת לגיל 13 צריכים אישור הורה לשימוש באפליקציות.
+            </div>
+          </div>
+        )}
+
+        {/* מסך אישור הורה */}
+        {role === "parent" && (
+          <div style={{ animation: "fadeIn .4s ease" }}>
+            <div style={{ background: "#fff", borderRadius: 18, padding: "20px 18px", marginBottom: 14, textAlign: "right", boxShadow: `0 6px 20px ${C.purple}22` }}>
+              <h2 style={{ fontSize: 19, color: C.purple, marginBottom: 12, fontWeight: 700, textAlign: "center" }}>
+                ✅ אישור הורה / אפוטרופוס
+              </h2>
+
+              <div style={{ fontSize: 14, color: C.dark, lineHeight: 1.8, marginBottom: 14 }}>
+                כהורה / אפוטרופוס, אני מאשר/ת:
+              </div>
+
+              <div style={{ fontSize: 13, color: C.mid, lineHeight: 2, marginBottom: 14 }}>
+                <div>✅ אני מבוגר/ת מעל גיל 18</div>
+                <div>✅ אני אחראי/ת על הילד שמשתמש באפליקציה</div>
+                <div>✅ אני מבין/ה שהאפליקציה היא <strong>כלי תמיכה ולא תחליף לטיפול מקצועי</strong></div>
+                <div>✅ אני מסכים/ה למדיניות הפרטיות ולתנאי השימוש</div>
+                <div>✅ אני יודע/ת שלא נאסף מידע אישי על הילד</div>
+                <div>✅ אני יודע/ת ששיחות עם AI עוברות לעיבוד אצל Anthropic</div>
+              </div>
+
+              <button onClick={() => setShowPolicy(true)}
+                style={{
+                  width: "100%",
+                  background: C.skyL,
+                  border: `2px solid ${C.sky}`,
+                  borderRadius: 12,
+                  padding: "10px 14px",
+                  cursor: "pointer",
+                  fontFamily: "'Varela Round',sans-serif",
+                  fontSize: 13,
+                  color: C.dark,
+                  fontWeight: 700,
+                  marginBottom: 14,
+                }}>
+                📜 קרא את מדיניות הפרטיות המלאה
+              </button>
+
+              <label style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 10,
+                background: agreed ? C.mintL : "#F8F8FF",
+                border: `2px solid ${agreed ? C.mint : "#DDD"}`,
+                borderRadius: 12,
+                padding: "12px 14px",
+                cursor: "pointer",
+                fontSize: 14,
+                fontWeight: 700,
+                color: C.dark,
+                transition: "all 0.3s",
+              }}>
+                <input type="checkbox"
+                  checked={agreed}
+                  onChange={(e) => setAgreed(e.target.checked)}
+                  style={{ width: 22, height: 22, accentColor: C.mint, cursor: "pointer" }} />
+                <span>אני מאשר/ת את כל הסעיפים לעיל</span>
+              </label>
+            </div>
+
+            <button onClick={() => setRole(null)}
+              style={{
+                background: "transparent",
+                border: "none",
+                color: C.mid,
+                fontFamily: "'Varela Round',sans-serif",
+                fontSize: 14,
+                cursor: "pointer",
+                marginBottom: 10,
+                textDecoration: "underline",
+              }}>
+              ← חזור לבחירה
+            </button>
+
+            <button onClick={handleProceed}
+              disabled={!agreed}
+              style={{
+                width: "100%",
+                background: agreed ? `linear-gradient(135deg, ${C.purple}, #6E4FCB)` : "#DDD",
+                border: "none",
+                borderRadius: 16,
+                padding: "16px 20px",
+                color: "#fff",
+                fontFamily: "'Varela Round',sans-serif",
+                fontSize: 17,
+                fontWeight: 700,
+                cursor: agreed ? "pointer" : "not-allowed",
+                boxShadow: agreed ? `0 8px 20px ${C.purple}55` : "none",
+              }}>
+              {agreed ? "🚀 המשך לאפליקציה" : "סמן את התיבה כדי להמשיך"}
+            </button>
+          </div>
+        )}
+
+        {/* מסך לילד */}
+        {role === "child" && (
+          <div style={{ animation: "fadeIn .4s ease" }}>
+            <div style={{ background: "#fff", borderRadius: 18, padding: "20px 18px", marginBottom: 14, boxShadow: `0 6px 20px ${C.coral}33` }}>
+              <div style={{ fontSize: 64, marginBottom: 12 }}>🧑‍👧‍👦</div>
+              <h2 style={{ fontSize: 20, color: C.coral, marginBottom: 12, fontWeight: 700 }}>
+                היי! צריך הורה רגע
+              </h2>
+              <p style={{ fontSize: 15, color: C.dark, lineHeight: 1.7, marginBottom: 16 }}>
+                לפני שמתחילים, אבא או אמא צריכים לאשר שאתה יכול להשתמש באפליקציה. 
+                <br/><br/>
+                <strong>קרא להם או הראה להם את המסך! 💜</strong>
+              </p>
+
+              <div style={{ background: C.purpleL, borderRadius: 12, padding: "12px 14px", fontSize: 13, color: C.dark, marginBottom: 14 }}>
+                💡 הסבר להורה: <br/>
+                "האפליקציה הזו עוזרת לי לתרגל מצבים חברתיים. ההורה שלי צריך ללחוץ על הכפתור."
+              </div>
+
+              <button onClick={() => setRole("parent")}
+                style={{
+                  width: "100%",
+                  background: `linear-gradient(135deg, ${C.coral}, ${C.rose})`,
+                  border: "none",
+                  borderRadius: 16,
+                  padding: "16px 20px",
+                  color: "#fff",
+                  fontFamily: "'Varela Round',sans-serif",
+                  fontSize: 16,
+                  fontWeight: 700,
+                  cursor: "pointer",
+                  boxShadow: `0 8px 20px ${C.coral}55`,
+                }}>
+                👨‍👩‍👧 ההורה שלי כאן — בוא נמשיך
+              </button>
+            </div>
+
+            <button onClick={() => setRole(null)}
+              style={{
+                background: "transparent",
+                border: "none",
+                color: C.mid,
+                fontFamily: "'Varela Round',sans-serif",
+                fontSize: 14,
+                cursor: "pointer",
+                textDecoration: "underline",
+              }}>
+              ← חזור לבחירה
+            </button>
+          </div>
+        )}
+
+        {/* מודל מדיניות פרטיות */}
+        {showPolicy && (
+          <div style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(45, 31, 79, 0.7)",
+            zIndex: 11000,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: 16,
+          }} onClick={() => setShowPolicy(false)}>
+            <div onClick={(e) => e.stopPropagation()}
+              style={{
+                background: "#fff",
+                borderRadius: 20,
+                padding: 24,
+                maxWidth: 500,
+                width: "100%",
+                maxHeight: "85vh",
+                overflowY: "auto",
+                textAlign: "right",
+              }}>
+              <h2 style={{ color: C.purple, marginBottom: 14, fontSize: 22, fontWeight: 700 }}>
+                📜 מדיניות פרטיות
+              </h2>
+
+              <div style={{ fontSize: 14, color: C.dark, lineHeight: 1.8 }}>
+                <p style={{ marginBottom: 12 }}>
+                  <strong style={{ color: C.purple }}>1. מה אנחנו לא אוספים:</strong><br/>
+                  אנחנו <strong>לא</strong> אוספים: שמות, גילאים, תמונות, מספרי טלפון, כתובות, מיקום או נתוני מעקב.
+                </p>
+
+                <p style={{ marginBottom: 12 }}>
+                  <strong style={{ color: C.purple }}>2. מה כן נשמר (במכשיר בלבד):</strong><br/>
+                  כוכבים שצברתם, סיטואציות שהושלמו, הגדרות נגישות אישיות. הכל נשמר באחסון של הדפדפן ולא יוצא ממנו.
+                </p>
+
+                <p style={{ marginBottom: 12 }}>
+                  <strong style={{ color: C.purple }}>3. שיחות עם AI:</strong><br/>
+                  הודעות שאתם שולחים בפורום AI נשלחות באופן מוצפן ל-Anthropic (Claude) דרך שרת מאובטח שלנו (Cloudflare). 
+                  Anthropic מעבדת את ההודעה ומחזירה תגובה. אנחנו <strong>לא שומרים</strong> את ההודעות בשום מקום.
+                </p>
+
+                <p style={{ marginBottom: 12 }}>
+                  <strong style={{ color: C.purple }}>4. מיקרופון:</strong><br/>
+                  המיקרופון פועל רק כשאתם לוחצים על כפתור המיקרופון. ההקלטה מעובדת מקומית בדפדפן ולא נשמרת.
+                </p>
+
+                <p style={{ marginBottom: 12 }}>
+                  <strong style={{ color: C.purple }}>5. ילדים מתחת לגיל 13:</strong><br/>
+                  בהתאם לחוק COPPA (ארה"ב) ותקנות הגנת הפרטיות בישראל, אנחנו דורשים אישור הורה לשימוש בילדים מתחת לגיל 13.
+                </p>
+
+                <p style={{ marginBottom: 12 }}>
+                  <strong style={{ color: C.purple }}>6. אבטחה:</strong><br/>
+                  התקשורת עם השרת מוצפנת ב-HTTPS. אין רישום משתמשים, אין סיסמאות, אין נתונים שניתן לגנוב.
+                </p>
+
+                <p style={{ marginBottom: 12 }}>
+                  <strong style={{ color: C.purple }}>7. שינויים במדיניות:</strong><br/>
+                  אם המדיניות תשתנה, נודיע לכם לפני השימוש הבא ונבקש אישור מחודש.
+                </p>
+
+                <p style={{ marginBottom: 12 }}>
+                  <strong style={{ color: C.purple }}>8. יצירת קשר:</strong><br/>
+                  לכל שאלה: <a href="mailto:Asisi27@gmail.com" style={{ color: C.purple, fontWeight: 700 }}>Asisi27@gmail.com</a>
+                </p>
+
+                <p style={{ marginTop: 16, color: C.mid, fontSize: 12, fontStyle: "italic" }}>
+                  עדכון אחרון: מאי 2026 · גרסה 1.0
+                </p>
+              </div>
+
+              <button onClick={() => setShowPolicy(false)}
+                style={{
+                  width: "100%",
+                  marginTop: 16,
+                  background: C.purple,
+                  color: "#fff",
+                  border: "none",
+                  borderRadius: 12,
+                  padding: "12px 18px",
+                  fontFamily: "'Varela Round',sans-serif",
+                  fontSize: 15,
+                  fontWeight: 700,
+                  cursor: "pointer",
+                }}>
+                ✕ סגור
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* footer */}
+        <div style={{ marginTop: 24, fontSize: 11, color: C.soft, lineHeight: 1.6 }}>
+          <strong>קשת חברים</strong> · גרסה 3.0 · 2026<br/>
+          🇮🇱 Maximo Corporation · אסף סולומון
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function PermissionsScreen({ onReady }) {
+  const [status, setStatus] = useState({ tts: null, mic: null });
+  const [testing, setTesting] = useState(false);
+  const [voiceList, setVoiceList] = useState([]);
+  const [showHelp, setShowHelp] = useState(false);
+  const [diagnostics, setDiagnostics] = useState([]);
+  const [showDiag, setShowDiag] = useState(false);
+
+  const log = (msg) => setDiagnostics(d => [...d, `${new Date().toLocaleTimeString()}: ${msg}`]);
+
+  useEffect(() => {
+    log(`User Agent: ${navigator.userAgent.slice(0, 60)}...`);
+    log(`speechSynthesis: ${!!window.speechSynthesis ? "✅ קיים" : "❌ לא קיים"}`);
+    log(`SpeechRecognition: ${!!(window.SpeechRecognition || window.webkitSpeechRecognition) ? "✅ קיים" : "❌ לא קיים"}`);
+    log(`HTTPS: ${location.protocol === "https:" ? "✅ כן" : "⚠️ לא — נדרש HTTPS!"}`);
+    
+    loadVoices().then(vs => {
+      setVoiceList(vs);
+      log(`נמצאו ${vs.length} קולות`);
+      const heb = vs.filter(v => v.lang?.startsWith("he"));
+      log(`קולות עברית: ${heb.length > 0 ? heb.map(v => v.name).join(", ") : "❌ אין"}`);
+    });
+  }, []);
+
+  const testTTS = async () => {
+    setTesting(true);
+    log("🔊 מתחיל בדיקת קול...");
+    
+    if (!window.speechSynthesis) { 
+      log("❌ speechSynthesis לא נתמך");
+      setStatus(s => ({ ...s, tts: "fail" })); 
+      setTesting(false); 
+      return; 
+    }
+    
+    const voices = await loadVoices();
+    setVoiceList(voices);
+    log(`טען ${voices.length} קולות`);
+    
+    if (voices.length === 0) {
+      log("❌ אין קולות זמינים במכשיר");
+      setStatus(s => ({ ...s, tts: "fail" })); 
+      setTesting(false); 
+      alert("❌ אין קולות מותקנים במכשיר.\n\nאנדרואיד: התקן 'Speech Services by Google' מ-Play Store");
+      return;
+    }
+    
+    try {
+      window.speechSynthesis.cancel();
+      const u = new SpeechSynthesisUtterance("שלום! זאת בדיקת קול. האם אתה שומע אותי?");
+      u.lang = "he-IL";
+      u.rate = 1.0;
+      u.pitch = 1.3;
+      u.volume = 1;
+      
+      const voice = voices.find(v => v.lang === "he-IL")
+                 || voices.find(v => v.lang?.startsWith("he"))
+                 || voices.find(v => v.lang?.startsWith("ar"))
+                 || voices.find(v => v.lang?.startsWith("en"))
+                 || voices[0];
+      if (voice) { u.voice = voice; log(`משתמש בקול: ${voice.name} (${voice.lang})`); }
+      else log("⚠️ לא נבחר קול");
+      
+      u.onstart = () => log("▶️ הקול התחיל לדבר");
+      u.onend = () => { log("✅ הקול סיים"); setStatus(s => ({ ...s, tts: "ok" })); setTesting(false); };
+      u.onerror = (ev) => { 
+        log(`❌ שגיאת TTS: ${ev.error}`);
+        setStatus(s => ({ ...s, tts: "fail" })); 
+        setTesting(false); 
+        if (ev.error === "not-allowed") alert("🔇 הצליל חסום בדפדפן.\nבדוק שעוצמת הקול במכשיר לא במצב שקט.");
+      };
+      
+      log("🎯 קורא ל-speak()...");
+      window.speechSynthesis.speak(u);
+      
+      setTimeout(() => { 
+        if (status.tts === null) { 
+          log("⏰ Timeout - מסמן כ-OK בכל מקרה"); 
+          setStatus(s => s.tts === null ? { ...s, tts: "ok" } : s); 
+          setTesting(false); 
+        }
+      }, 6000);
+    } catch (e) { 
+      log(`❌ Exception: ${e.message}`);
+      setStatus(s => ({ ...s, tts: "fail" })); 
+      setTesting(false); 
+    }
+  };
+
+  const testMic = async () => {
+    log("🎙️ מתחיל בדיקת מיקרופון...");
+    if (!navigator.mediaDevices?.getUserMedia) { 
+      log("❌ getUserMedia לא נתמך");
+      setStatus(s => ({ ...s, mic: "fail" })); 
+      alert("⚠️ הדפדפן לא תומך במיקרופון. נסה Chrome.");
+      return;
+    }
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      stream.getTracks().forEach(t => t.stop());
+      log("✅ הרשאת מיקרופון ניתנה");
+      setStatus(s => ({ ...s, mic: "ok" }));
+    } catch (e) { 
+      log(`❌ ${e.name}: ${e.message}`);
+      setStatus(s => ({ ...s, mic: "fail" })); 
+      alert(`❌ ${e.message}\n\nאנדרואיד: הגדרות > אפליקציות > Chrome > הרשאות > מיקרופון`);
+    }
+  };
+
+  const hasHebrewVoice = voiceList.some(v => v.lang?.startsWith("he"));
+
+  return (
+    <div style={{ minHeight: "100vh", background: "linear-gradient(160deg,#E8F4FF 0%,#FFF0F8 50%,#F0FFE8 100%)", direction: "rtl", display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
+      <div style={{ background: "#fff", borderRadius: 24, padding: 22, maxWidth: 420, width: "100%", boxShadow: "0 10px 40px rgba(0,0,0,0.1)", textAlign: "center" }}>
+        <div style={{ fontSize: 50 }}>🌈</div>
+        <h1 style={{ fontFamily: "'Varela Round',sans-serif", fontSize: 22, color: C.purple, margin: "6px 0 4px" }}>קשת חברים</h1>
+        <p style={{ fontFamily: "'Varela Round',sans-serif", fontSize: 12, color: C.mid, marginBottom: 14 }}>
+          בואו נבדוק שהקול עובד 🔊
+        </p>
+
+        {/* מצב קולות */}
+        <div style={{ background: voiceList.length > 0 ? C.mintL : C.coralL, border: `2px solid ${voiceList.length > 0 ? C.mint : C.coral}`, borderRadius: 12, padding: "10px 12px", marginBottom: 10, fontFamily: "'Varela Round',sans-serif", fontSize: 12, color: C.dark, textAlign: "right" }}>
+          {voiceList.length > 0 ? (
+            <>✅ מצאנו <strong>{voiceList.length}</strong> קולות במכשיר{hasHebrewVoice && " — כולל עברית! 🇮🇱"}</>
+          ) : (
+            <>⚠️ <strong>אין קולות במכשיר</strong> — לחץ "בדוק" לרענון</>
+          )}
+        </div>
+
+        {/* TTS Button */}
+        <button onClick={testTTS} disabled={testing}
+          style={{ background: status.tts === "ok" ? C.mint : C.sun, border: "none", borderRadius: 14, padding: "14px 16px", fontFamily: "'Varela Round',sans-serif", fontSize: 15, fontWeight: 700, color: "#fff", cursor: "pointer", width: "100%", marginBottom: 10, boxShadow: `0 4px 14px ${status.tts === "ok" ? C.mint : C.sun}55` }}>
+          {testing ? "⏳ בודק קול..." : status.tts === "ok" ? "✅ הקול עובד! לחץ לבדיקה נוספת" : "🔊 לחץ ושמע 'שלום!'"}
+        </button>
+
+        {/* Mic Button */}
+        <button onClick={testMic}
+          style={{ background: status.mic === "ok" ? C.mint : C.purple, border: "none", borderRadius: 14, padding: "12px 16px", fontFamily: "'Varela Round',sans-serif", fontSize: 14, fontWeight: 700, color: "#fff", cursor: "pointer", width: "100%", marginBottom: 12, boxShadow: `0 4px 14px ${status.mic === "ok" ? C.mint : C.purple}55` }}>
+          {status.mic === "ok" ? "✅ מיקרופון מוכן" : "🎙️ אשר מיקרופון"}
+        </button>
+
+        {/* כפתור אבחון */}
+        <button onClick={() => setShowDiag(!showDiag)} style={{ background: "transparent", border: `1.5px solid ${C.coral}`, borderRadius: 10, padding: "6px 10px", fontFamily: "'Varela Round',sans-serif", fontSize: 11, color: C.coral, cursor: "pointer", marginBottom: 8, width: "100%" }}>
+          {showDiag ? "▲ הסתר אבחון" : "🔍 הצג מידע אבחון (אם לא עובד)"}
+        </button>
+
+        {showDiag && (
+          <div style={{ background: "#1A1630", borderRadius: 10, padding: "10px 12px", marginBottom: 10, fontFamily: "monospace", fontSize: 10, color: "#7EDBA4", textAlign: "left", direction: "ltr", maxHeight: 180, overflowY: "auto", lineHeight: 1.5 }}>
+            {diagnostics.map((d, i) => <div key={i}>{d}</div>)}
+          </div>
+        )}
+
+        <button onClick={() => setShowHelp(!showHelp)} style={{ background: "transparent", border: `1.5px solid ${C.purple}`, borderRadius: 10, padding: "6px 10px", fontFamily: "'Varela Round',sans-serif", fontSize: 11, color: C.purple, cursor: "pointer", marginBottom: 8, width: "100%" }}>
+          {showHelp ? "▲" : "▼"} הוראות לאנדרואיד
+        </button>
+
+        {showHelp && (
+          <div style={{ background: "#FFF3CD", borderRadius: 10, padding: "10px 12px", marginBottom: 10, fontFamily: "'Varela Round',sans-serif", fontSize: 11, color: C.dark, textAlign: "right", lineHeight: 1.7 }}>
+            <strong>אם אין צליל באנדרואיד:</strong><br/>
+            1. <strong>בדוק עוצמת קול</strong> במכשיר — לא במצב שקט<br/>
+            2. <strong>פתח Play Store</strong> והתקן:<br/>
+            &nbsp;&nbsp;<em>"Speech Services by Google"</em><br/>
+            3. <strong>הגדרות מערכת:</strong><br/>
+            &nbsp;&nbsp;ניהול כללי → שפה → טקסט-לדיבור<br/>
+            &nbsp;&nbsp;→ בחר "Speech Services by Google"<br/>
+            4. <strong>התקן עברית:</strong> 🔧 → התקן נתוני קול → עברית<br/>
+            5. <strong>סגור ופתח את הדפדפן מחדש</strong>
+          </div>
+        )}
+
+        <button onClick={onReady} style={{ ...btnS(C.purple), marginTop: 0 }}>
+          {(status.tts === "ok" || status.mic === "ok") ? "✅ נתחיל!" : "המשך בכל מקרה →"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// בורר קול ש-SpeakBtn ישתמש בו
+function VoiceTypeSelector() {
+  const [vt, setVt] = useState(currentVoiceType);
+  return (
+    <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
+      <span style={{ fontFamily: "'Varela Round',sans-serif", fontSize: 12, color: C.mid }}>סוג קול:</span>
+      {Object.entries(VOICE_TYPES).map(([k, v]) => (
+        <button key={k} onClick={() => { currentVoiceType = k; setVt(k); }}
+          style={{
+            background: vt === k ? C.purple : C.purpleL,
+            border: `2px solid ${C.purple}`,
+            borderRadius: 99, padding: "4px 10px",
+            cursor: "pointer",
+            fontFamily: "'Varela Round',sans-serif",
+            fontSize: 12,
+            color: vt === k ? "#fff" : C.purple,
+            transition: "all .2s",
+          }}>
+          {v.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+/* כפתור רמקול — לוחצים ושומעים את הטקסט */
+function SpeakBtn({ text, size = 36 }) {
+  const [active, setActive] = useState(false);
+  const timerRef = useRef(null);
+
+  const handleClick = (e) => {
+    e.stopPropagation();
+    if (active) {
+      window.speechSynthesis?.cancel();
+      setActive(false);
+      clearTimeout(timerRef.current);
+    } else {
+      readAloud(text);
+      setActive(true);
+      // עצור אוטומטית אחרי זמן לפי אורך הטקסט
+      timerRef.current = setTimeout(() => setActive(false), Math.max(3000, text.length * 100));
+    }
+  };
+
+  useEffect(() => () => clearTimeout(timerRef.current), []);
+
+  return (
+    <button
+      onClick={handleClick}
+      title={active ? "לחץ לעצירה" : "לחץ לשמיעה בקול"}
+      style={{
+        background: active ? C.coral : C.sunL,
+        border: `2.5px solid ${active ? C.coral : C.sun}`,
+        borderRadius: "50%",
+        width: size, height: size,
+        cursor: "pointer",
+        fontSize: size * 0.48,
+        display: "flex", alignItems: "center", justifyContent: "center",
+        flexShrink: 0,
+        transition: "all .2s",
+        boxShadow: active ? `0 0 12px ${C.coral}99` : `0 2px 6px ${C.sun}44`,
+        animation: active ? "pulse 1s ease infinite" : "none",
+      }}
+    >
+      {active ? "⏹" : "🔊"}
+    </button>
+  );
+}
+
+/* ══════════════════════════════════════════
+   מיקרופון — לוחצים ומדברים, הטקסט נכתב
+══════════════════════════════════════════ */
+function MicBtn({ onResult, size = 42, label = "דבר בקול" }) {
+  const [listening, setListening] = useState(false);
+  const recRef = useRef(null);
+
+  const toggle = async (e) => {
+    e.stopPropagation();
+    if (listening) {
+      recRef.current?.stop();
+      setListening(false);
+      return;
+    }
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SR) {
+      alert("🎙️ זיהוי קול לא נתמך בדפדפן זה.\nנסה Google Chrome או Safari.");
+      return;
+    }
+    // ודא הרשאת מיקרופון
+    try {
+      if (navigator.mediaDevices?.getUserMedia) {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        stream.getTracks().forEach(t => t.stop());
+      }
+    } catch {
+      alert("❌ אין הרשאת מיקרופון.\nאשר אותה בהגדרות הדפדפן (לחץ על האייקון 🔒 בכתובת).");
+      return;
+    }
+    try {
+      const r = new SR();
+      r.lang = "he-IL";
+      r.continuous = false;
+      r.interimResults = false;
+      r.onresult = (ev) => {
+        const t = ev.results[0][0].transcript;
+        setListening(false);
+        onResult(t);
+      };
+      r.onerror = (ev) => {
+        setListening(false);
+        if (ev.error === "not-allowed") alert("❌ אין הרשאת מיקרופון. אשר אותה בהגדרות הדפדפן.");
+        else if (ev.error === "no-speech") alert("🤫 לא שמעתי כלום. נסה שוב!");
+        else if (ev.error !== "aborted") console.warn("Mic error:", ev.error);
+      };
+      r.onend = () => setListening(false);
+      recRef.current = r;
+      r.start();
+      setListening(true);
+    } catch (err) {
+      setListening(false);
+      console.warn("Recognition error:", err);
+    }
+  };
+
+  return (
+    <button
+      onClick={toggle}
+      title={listening ? "לחץ לעצירה" : label}
+      style={{
+        background: listening ? C.coral : C.mintL,
+        border: `2.5px solid ${listening ? C.coral : C.mint}`,
+        borderRadius: "50%",
+        width: size, height: size,
+        cursor: "pointer",
+        fontSize: size * 0.44,
+        display: "flex", alignItems: "center", justifyContent: "center",
+        flexShrink: 0,
+        transition: "all .2s",
+        boxShadow: listening ? `0 0 16px ${C.coral}99` : `0 2px 6px ${C.mint}44`,
+        animation: listening ? "pulse 1s ease infinite" : "none",
+      }}
+    >
+      {listening ? "⏺" : "🎙️"}
+    </button>
+  );
+}
+
+/* ══════════════════════════════════════════
+   בועת שיחה עם 🔊 ו-🎙️
+══════════════════════════════════════════ */
+function ChatBubble({ text, name, avatar, isYou, color, showMic = false, onMicResult }) {
+  return (
+    <div style={{
+      display: "flex",
+      flexDirection: isYou ? "row-reverse" : "row",
+      gap: 10,
+      alignItems: "flex-end",
+      marginBottom: 14,
+    }}>
+      <span style={{ fontSize: 40, flexShrink: 0 }}>{avatar}</span>
+      <div style={{ display: "flex", flexDirection: "column", alignItems: isYou ? "flex-end" : "flex-start", maxWidth: "72%" }}>
+        <div style={{
+          fontFamily: "'Varela Round', sans-serif",
+          fontSize: 12,
+          color: C.soft,
+          marginBottom: 4,
+        }}>{name}</div>
+        <div style={{
+          background: isYou ? color : "#fff",
+          border: `2px solid ${isYou ? color : "#E8E8E8"}`,
+          borderRadius: isYou ? "20px 20px 4px 20px" : "20px 20px 20px 4px",
+          padding: "13px 16px",
+          fontFamily: "'Varela Round', sans-serif",
+          fontSize: 16,
+          color: isYou ? "#fff" : C.dark,
+          lineHeight: 1.6,
+          boxShadow: `0 2px 8px ${isYou ? color + "44" : "#0001"}`,
+        }}>
+          {text}
+        </div>
+        {/* כפתורי קול מתחת לבועה */}
+        <div style={{ display: "flex", gap: 8, marginTop: 8, alignItems: "center" }}>
+          <SpeakBtn text={text} size={32} />
+          {showMic && onMicResult && (
+            <>
+              <MicBtn onResult={onMicResult} size={32} label="אמור בקול" />
+              <span style={{ fontFamily: "'Varela Round', sans-serif", fontSize: 11, color: C.soft }}>
+                🎙️ אמור בקול
+              </span>
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ══════════════════════════════════════════
+   כפתור בחירה עם 🔊 ו-🎙️
+══════════════════════════════════════════ */
+function ChoiceButton({ text, onClick, disabled, isChosen, isGood }) {
+  const bg = isChosen
+    ? (isGood ? "#D4F5E2" : "#FFE5E0")
+    : "#FAFAFA";
+  const border = isChosen
+    ? (isGood ? C.mint : C.coral)
+    : "#E0E0E0";
+
+  return (
+    <div style={{
+      background: bg,
+      border: `2.5px solid ${border}`,
+      borderRadius: 16,
+      overflow: "hidden",
+      marginBottom: 10,
+      transition: "all .2s",
+      boxShadow: isChosen ? `0 2px 10px ${border}55` : "0 1px 4px #0001",
+    }}>
+      {/* שורת הטקסט — לוחצים לבחור */}
+      <button
+        onClick={onClick}
+        disabled={disabled}
+        style={{
+          width: "100%",
+          background: "transparent",
+          border: "none",
+          padding: "13px 16px",
+          cursor: disabled ? "default" : "pointer",
+          fontFamily: "'Varela Round', sans-serif",
+          fontSize: 15,
+          color: C.dark,
+          textAlign: "right",
+          display: "flex",
+          alignItems: "center",
+          gap: 10,
+          direction: "rtl",
+        }}
+      >
+        <span style={{ fontSize: 22, flexShrink: 0 }}>
+          {isChosen ? (isGood ? "✅" : "❌") : "💭"}
+        </span>
+        <span style={{ flex: 1, lineHeight: 1.5 }}>{text}</span>
+      </button>
+
+      {/* שורת כפתורי קול */}
+      <div style={{
+        borderTop: `1.5px solid ${border}44`,
+        background: "#F7F7FF",
+        padding: "7px 14px",
+        display: "flex",
+        alignItems: "center",
+        gap: 10,
+        direction: "rtl",
+      }}>
+        <SpeakBtn text={text} size={30} />
+        <span style={{ fontFamily: "'Varela Round', sans-serif", fontSize: 11, color: C.soft }}>
+          🔊 לחץ לשמוע
+        </span>
+        <div style={{ flex: 1 }} />
+        <MicBtn
+          size={30}
+          label="אמור בקול ובחר!"
+          onResult={() => { if (!disabled) onClick(); }}
+        />
+        <span style={{ fontFamily: "'Varela Round', sans-serif", fontSize: 11, color: C.mint }}>
+          🎙️ אמור ובחר
+        </span>
+      </div>
+    </div>
+  );
+}
+
+/* ══════════════════════════════════════════
+   SCENARIOS DATA — תיקון מלא של הניווט
+══════════════════════════════════════════ */
+const SCENARIOS = [
+  {
+    id: "s1",
+    category: "להתחיל שיחה",
+    title: "לגשת לילד שאתה אוהב",
+    icon: "💬",
+    char: { name: "דני", avatar: "👦", color: C.mint, trait: "אנרגטי, כדורגל וקלפים" },
+    color: C.mint, bg: C.mintL, difficulty: 1,
+    intro: "דני עומד לבד ומסתכל על קלפי פוקימון שלו. אתה רוצה לדבר איתו.",
+    steps: [
+      {
+        id: "n1", type: "char",
+        avatar: "👦", name: "דני",
+        text: "דני עומד לבד ומסתכל על הקלפים שלו...",
+        next: "n2",
+      },
+      {
+        id: "n2", type: "choice",
+        prompt: "מה תגיד לדני?",
+        choices: [
+          { text: 'היי דני! הקלפים שלך מדהימים! מי יש לך?', good: true,  tip: "מחמאה + שאלה = פתיחה מושלמת! 🌟", next: "n3_good" },
+          { text: 'היי. (ועוצר)',                              good: false, tip: '"היי" לבד קצר מדי — הוסף נושא!',     next: "n3_bad"  },
+          { text: 'לעמוד לידו בשקט...',                       good: false, tip: "שקט לא פותח שיחה. עדיף לדבר!",      next: "n3_bad"  },
+        ],
+      },
+      {
+        id: "n3_good", type: "char",
+        avatar: "👦", name: "דני",
+        text: "כן!! יש לי פיקאצ'ו נדיר! אתה אוהב פוקימון?!",
+        next: "n4",
+      },
+      {
+        id: "n3_bad", type: "char",
+        avatar: "👦", name: "דני",
+        text: "...היי. (שקט מביך)",
+        next: "n4_recover",
+      },
+      {
+        id: "n4_recover", type: "choice",
+        prompt: "שקט מביך. מה תעשה עכשיו?",
+        choices: [
+          { text: "ראיתי שיש לך קלפים מגניבים — מה יש לך?", good: true,  tip: "מחמאה מאוחרת עדיין עובדת! 👍", next: "n3_good" },
+          { text: "ללכת משם...",                               good: false, tip: "לא לוותר! ניסיון נוסף!",       next: "end_bad"  },
+        ],
+      },
+      {
+        id: "n4", type: "choice",
+        prompt: "דני שאל אם אתה אוהב פוקימון. מה תגיד?",
+        choices: [
+          { text: "כן! שרמנדר הפוקימון שלי! מה שלך?",       good: true,  tip: "שיתוף + שאלה חוזרת = חיבור! 🔥",     next: "end_good" },
+          { text: "לא ממש, אבל הקלפים שלך מגניבים!",         good: true,  tip: "כנות + מחמאה = שיחה מעולה!",        next: "end_good" },
+          { text: "לא... לא יודע...",                          good: false, tip: '"לא יודע" סוגר שיחה. נסה לגלות עניין!', next: "end_bad" },
+        ],
+      },
+      { id: "end_good", type: "end", good: true,  msg: "התחלת חברות אמיתית! מחמאה + עניין + שאלה = חברות 🌈" },
+      { id: "end_bad",  type: "end", good: false, msg: "הזדמנות הוחמצה. מחמאה + שאלה פותחים כל דלת! 💙" },
+    ],
+  },
+  {
+    id: "s2",
+    category: "להתחיל שיחה",
+    title: "ילד חדש בכיתה",
+    icon: "🆕",
+    char: { name: "אבי", avatar: "🧒", color: C.purple, trait: "חדש, ביישן, אוהב רובוטיקה" },
+    color: C.purple, bg: C.purpleL, difficulty: 2,
+    intro: "אבי הגיע היום לכיתה בפעם הראשונה. הוא יושב לבד ונראה מבולבל.",
+    steps: [
+      {
+        id: "n1", type: "char",
+        avatar: "👩‍🏫", name: "גב' יעל",
+        text: "כיתה, זה אבי! הגיע מחיפה. נהיה חברים טובים!",
+        next: "n2",
+      },
+      {
+        id: "n2", type: "choice",
+        prompt: "אבי יושב לבד ונראה אבוד. מה תעשה?",
+        choices: [
+          { text: "היי אבי! אני [שם] — רוצה לשבת איתנו?",  good: true,  tip: "הזמנה ישירה — הכי חם שיכול להיות! ✅", next: "n3_good" },
+          { text: "להמתין שהוא יגיד שלום קודם",              good: false, tip: "ילד חדש ביישן לא יתחיל. יזום!",        next: "n3_wait" },
+          { text: '"שלום." וממשיכים',                         good: false, tip: "שלום קצר לא מספיק לאיש בודד.",         next: "n3_cold" },
+        ],
+      },
+      {
+        id: "n3_good", type: "char",
+        avatar: "🧒", name: "אבי",
+        text: "כן! תודה מאוד... קצת פחדתי שלא אמצא חברים.",
+        next: "n4",
+      },
+      {
+        id: "n3_wait", type: "char",
+        avatar: "🧒", name: "אבי",
+        text: "אבי יושב בשקט ומסתכל בסביבה... 5 דקות עוברות.",
+        next: "n3_wait2",
+      },
+      {
+        id: "n3_wait2", type: "choice",
+        prompt: "אבי עדיין לבד. מה עכשיו?",
+        choices: [
+          { text: "היי! אני [שם], בוא תשב איתנו!",  good: true,  tip: "מוכן ליזום אחרי ההיסוס — 💪", next: "n3_good" },
+          { text: "הוא בטח לא רוצה חברים...",          good: false, tip: "לא לנחש! תמיד לגשת.",       next: "end_bad"  },
+        ],
+      },
+      {
+        id: "n3_cold", type: "char",
+        avatar: "🧒", name: "אבי",
+        text: "...היי. (ממשיך לשבת לבד, נראה עצוב)",
+        next: "n3_cold2",
+      },
+      {
+        id: "n3_cold2", type: "choice",
+        prompt: "אבי עדיין לבד. רוצה לנסות שוב?",
+        choices: [
+          { text: "סורי שלא באתי קודם! בוא תשב איתנו!",  good: true,  tip: "לחזור ולנסות — אמיץ! 👍", next: "n3_good" },
+          { text: "לא לעשות כלום...",                       good: false, tip: "הזדמנות הוחמצה.",         next: "end_bad"  },
+        ],
+      },
+      {
+        id: "n4", type: "choice",
+        prompt: "אבי אמר שפחד. מה תגיד?",
+        choices: [
+          { text: "אל תדאג! אני אהיה חבר שלך ואציג לך את כולם!", good: true,  tip: "להבטיח ליווי — מתנה ענקית לילד חדש! 🌟", next: "n5" },
+          { text: "הכיתה שלנו בסדר.",                              good: false, tip: '"בסדר" — אפשר להרחיב ולהזמין!',           next: "n5_ok" },
+        ],
+      },
+      {
+        id: "n5", type: "char",
+        avatar: "🧒", name: "אבי",
+        text: "ממש?! תודה!! אתה כל כך נחמד! 🥹",
+        next: "end_good",
+      },
+      {
+        id: "n5_ok", type: "char",
+        avatar: "🧒", name: "אבי",
+        text: "אהה... אוקי. תודה.",
+        next: "end_ok",
+      },
+      { id: "end_good", type: "end", good: true,  msg: "עשית יום ילד חדש מאוד שמח! יצרת חברות מיום ראשון 🌈🌟" },
+      { id: "end_ok",   type: "end", good: false, msg: "עשית צעד טוב! לפעם הבאה — הזמנה ספציפית תקרב יותר 😊" },
+      { id: "end_bad",  type: "end", good: false, msg: "ילד חדש תמיד שמח לחבר! תמיד לגשת ולנסות 💙" },
+    ],
+  },
+  {
+    id: "s3",
+    category: "הפסקה",
+    title: "להצטרף לכדורגל",
+    icon: "⚽",
+    char: { name: "תום", avatar: "🧑", color: C.sun, trait: "ספורטאי, תחרותי אבל הוגן" },
+    color: C.sun, bg: C.sunL, difficulty: 1,
+    intro: "תום ושלושה ילדים משחקים כדורגל בחצר. אתה רוצה לשחק גם.",
+    steps: [
+      {
+        id: "n1", type: "char",
+        avatar: "🧑", name: "תום",
+        text: "(תום ועוד ילדים משחקים כדורגל ולא שמים לב אליך)",
+        next: "n2",
+      },
+      {
+        id: "n2", type: "choice",
+        prompt: "אתה רוצה לשחק. מה תעשה?",
+        choices: [
+          { text: "אפשר לשחק גם אני?",        good: true,  tip: "לשאול ישירות — הדרך הטובה ביותר! ✅", next: "n3_good" },
+          { text: "לעמוד בצד ולחכות...",        good: false, tip: "לחכות בצד לא עובד. לדבר ישירות!",   next: "n3_wait" },
+          { text: "לקחת את הכדור ולהתחיל",      good: false, tip: "לקחת בלי רשות גורם לריב.",           next: "n3_take" },
+        ],
+      },
+      {
+        id: "n3_good", type: "char",
+        avatar: "🧑", name: "תום",
+        text: "כן! בוא! אתה בצוות שלי!",
+        next: "n4",
+      },
+      {
+        id: "n3_wait", type: "char",
+        avatar: "🧑", name: "תום",
+        text: "תום לא שם לב אליך... 5 דקות עוברות.",
+        next: "n3_wait2",
+      },
+      {
+        id: "n3_wait2", type: "choice",
+        prompt: "עדיין עומד בצד. מה עכשיו?",
+        choices: [
+          { text: "תום! אפשר לשחק גם אני?",  good: true,  tip: "כל הכבוד שניסית שוב! 💪", next: "n3_good" },
+          { text: "ללכת הביתה עצוב...",         good: false, tip: "לא לוותר! תמיד אפשר לשאול.", next: "end_bad" },
+        ],
+      },
+      {
+        id: "n3_take", type: "char",
+        avatar: "🧑", name: "תום",
+        text: "הי!! מה אתה עושה?! תחזיר את הכדור!",
+        next: "n3_take2",
+      },
+      {
+        id: "n3_take2", type: "choice",
+        prompt: "תום כועס. מה עכשיו?",
+        choices: [
+          { text: "סורי!! לקחתי בטעות. אפשר לשחק איתכם?",  good: true,  tip: "להתנצל ולבקש — מציל את המצב! 👍", next: "n3_good" },
+          { text: "זה לא הכדור שלך!",                         good: false, tip: "ריב לא מוביל לשום מקום טוב.",     next: "end_bad"  },
+        ],
+      },
+      {
+        id: "n4", type: "choice",
+        prompt: "תום הכניס אותך לצוות שלו! מה תגיד?",
+        choices: [
+          { text: "כיף! תודה! אני מוכן! 🙌",  good: true,  tip: "התלהבות מחממת את האווירה! 🔥" , next: "end_good" },
+          { text: "בסדר...",                     good: false, tip: "קצת קר. נסה לגלות יותר שמחה!", next: "end_ok"   },
+        ],
+      },
+      { id: "end_good", type: "end", good: true,  msg: "הצלחת להצטרף ולשחק בצורה חברותית! 🌟⚽" },
+      { id: "end_ok",   type: "end", good: false, msg: "הצטרפת! לפעם הבאה — קצת יותר התלהבות תבנה אווירה טובה 😊" },
+      { id: "end_bad",  type: "end", good: false, msg: "הפעם לא הצלחנו. לשאול ישירות תמיד עובד 💙" },
+    ],
+  },
+  {
+    id: "s4",
+    category: "הפסקה",
+    title: "ריב על הנדנדה",
+    icon: "🛝",
+    char: { name: "נועה", avatar: "👧", color: C.coral, trait: "שמחה, מדברת, מוזיקה" },
+    color: C.coral, bg: C.coralL, difficulty: 2,
+    intro: "נועה כבר 10 דקות על הנדנדה ואתה מחכה. אתה רוצה לנדנד גם.",
+    steps: [
+      {
+        id: "n1", type: "char",
+        avatar: "👧", name: "נועה",
+        text: "(נועה מתנדנדת ושמחה, לא שמה לב שאתה מחכה)",
+        next: "n2",
+      },
+      {
+        id: "n2", type: "choice",
+        prompt: "נועה על הנדנדה הרבה זמן. מה תגיד?",
+        choices: [
+          { text: "נועה, אני מחכה כבר הרבה זמן. אפשר בעוד דקה?",  good: true,  tip: "לבקש בנימוס תוך הסבר — הדרך הנכונה! ✅",  next: "n3_polite" },
+          { text: "הנדנדה שלי! רדי מיד!",                            good: false, tip: "פקודות גורמות לריב. עדיף לבקש בנחמדות.", next: "n3_demand" },
+          { text: "לדחוף אותה מהנדנדה",                              good: false, tip: "לגעת בכוח — אסור ומסוכן!",               next: "n3_push"   },
+        ],
+      },
+      {
+        id: "n3_polite", type: "char",
+        avatar: "👧", name: "נועה",
+        text: "אוקי! עוד דקה אחת ואני יורדת, הבטחה!",
+        next: "n4_wait",
+      },
+      {
+        id: "n3_demand", type: "char",
+        avatar: "👧", name: "נועה",
+        text: "לא! אני כאן לפניך! זה לא הוגן!",
+        next: "n3_demand2",
+      },
+      {
+        id: "n3_demand2", type: "choice",
+        prompt: "נועה מסרבת. מה עכשיו?",
+        choices: [
+          { text: "בסדר, אחכה עוד קצת בסבלנות.",                         good: true,  tip: "סבלנות — חוכמה רגשית! 👍",              next: "n4_patient" },
+          { text: "אלך לספר למורה שנועה לא נותנת לי.",                    good: true,  tip: "לבקש עזרה ממבוגר — מקובל לגמרי.",      next: "n4_teacher" },
+        ],
+      },
+      {
+        id: "n3_push", type: "char",
+        avatar: "👧", name: "נועה",
+        text: "אאוץ!! (נועה נפגעת ובוכה. המורה מתקרבת בפנים כועסות)",
+        next: "end_bad",
+      },
+      {
+        id: "n4_wait", type: "char",
+        avatar: "👧", name: "נועה",
+        text: "נועה יורדת אחרי דקה. הנה, תנדנד!",
+        next: "n5",
+      },
+      {
+        id: "n4_patient", type: "char",
+        avatar: "👧", name: "נועה",
+        text: "נועה רואה שאתה מחכה בסבלנות. בוא, שב על הנדנדה השנייה איתי!",
+        next: "end_great",
+      },
+      {
+        id: "n4_teacher", type: "char",
+        avatar: "👩‍🏫", name: "גב' יעל",
+        text: "נועה, צריך לחלוק. בבקשה תתחלפו.",
+        next: "n4_wait",
+      },
+      {
+        id: "n5", type: "choice",
+        prompt: "נועה נתנה לך את הנדנדה. מה תגיד?",
+        choices: [
+          { text: "תודה נועה! את נחמדה! 😊",       good: true,  tip: "תודה + מחמאה = בונה חברות! 🌟", next: "end_good" },
+          { text: "לעלות על הנדנדה בלי להגיד כלום",  good: false, tip: "לשכוח להגיד תודה — מחמיצים!",  next: "end_ok"   },
+        ],
+      },
+      { id: "end_great", type: "end", good: true,  msg: "סבלנות הביאה לפתרון יפה! שניכם ניצחתם 🌟" },
+      { id: "end_good",  type: "end", good: true,  msg: "טיפלת במצב בצורה בוגרת ונחמדה! 🌟" },
+      { id: "end_ok",    type: "end", good: false, msg: "הגעת למטרה! לפעם הבאה — תמיד להגיד תודה 💙" },
+      { id: "end_bad",   type: "end", good: false, msg: "לגעת בכוח תמיד מסתיים רע. לדבר ולחכות — הרבה יותר טוב!" },
+    ],
+  },
+  {
+    id: "s5",
+    category: "ארוחת צהריים",
+    title: "לשבת ליד ילד לבד",
+    icon: "🍱",
+    char: { name: "אבי", avatar: "🧒", color: C.purple, trait: "חדש, ביישן, אוהב רובוטיקה" },
+    color: C.purple, bg: C.purpleL, difficulty: 1,
+    intro: "בחדר האוכל, אבי יושב לבד ונראה עצוב. אתה רוצה לשבת לידו.",
+    steps: [
+      {
+        id: "n1", type: "choice",
+        prompt: "אבי יושב לבד. מה תעשה?",
+        choices: [
+          { text: "היי! אני [שם], אפשר לשבת פה?",      good: true,  tip: "לשאול לפני שיושבים — מראה כבוד! ✅", next: "n2_yes"     },
+          { text: "לשבת לידו בלי לאמר כלום",             good: false, tip: "בלי להתייחס — יוצר אי נוחות.",     next: "n2_silent"  },
+          { text: "לשבת עם חברים אחרים ולא להתייחס",     good: false, tip: "הוא ירגיש גרוע יותר לבד.",         next: "end_ignore" },
+        ],
+      },
+      {
+        id: "n2_yes", type: "char",
+        avatar: "🧒", name: "אבי",
+        text: "כן בבקשה! אני אבי. שמח שמישהו בא לשבת איתי.",
+        next: "n3",
+      },
+      {
+        id: "n2_silent", type: "char",
+        avatar: "🧒", name: "אבי",
+        text: "אבי מסתכל עליך בנבוך ולא אומר כלום...",
+        next: "n2_silent2",
+      },
+      {
+        id: "n2_silent2", type: "choice",
+        prompt: "אבי נבוך. מה עכשיו?",
+        choices: [
+          { text: "אהה, סורי! אני [שם]. אפשר לשבת?",  good: true,  tip: "תיקון מאוחר — מקובל לגמרי! 👍", next: "n2_yes" },
+          { text: "לאכול בשקט...",                       good: false, tip: "שתיקה ממושכת מייאשת.",           next: "end_bad" },
+        ],
+      },
+      {
+        id: "n3", type: "choice",
+        prompt: "אבי יושב לידך. מה תשאל כדי לפתוח שיחה?",
+        choices: [
+          { text: "מה יש לך לאכול? נראה טעים!",   good: true,  tip: "שאלה על ה'כאן ועכשיו' — עובדת תמיד! 😊", next: "n4_food"   },
+          { text: "מאיפה אתה?",                      good: true,  tip: "שאלת רקע — פותחת שיחה על האדם!",       next: "n4_origin" },
+        ],
+      },
+      {
+        id: "n4_food", type: "char",
+        avatar: "🧒", name: "אבי",
+        text: "פיתה עם גבינה! אמא שלי עשתה. ומה אצלך?",
+        next: "n5",
+      },
+      {
+        id: "n4_origin", type: "char",
+        avatar: "🧒", name: "אבי",
+        text: "מחיפה! הגעתי לפה לפני שבוע. קשה להתחיל מחדש...",
+        next: "n5",
+      },
+      {
+        id: "n5", type: "choice",
+        prompt: "השיחה זורמת. איך תמשיך?",
+        choices: [
+          { text: "בוא נשב ביחד בהפסקה הבאה גם!",      good: true,  tip: "הזמנה לפעילות = חברות אמיתית! 🌈", next: "end_good" },
+          { text: "אהה... (ואוכל בשקט)",                 good: false, tip: "שיחה נגמרת. הזמנה הייתה עושה פלאים!", next: "end_ok" },
+        ],
+      },
+      { id: "end_good",   type: "end", good: true,  msg: "ארוחת צהריים הפכה לחברות אמיתית! 🌈" },
+      { id: "end_ok",     type: "end", good: false, msg: "שיחה טובה! לפעם הבאה — הזמנה לפעילות בונה חברות 💙" },
+      { id: "end_ignore", type: "end", good: false, msg: "ילד בודד ישאר בודד. לפעם הבאה — לגשת! 💙" },
+      { id: "end_bad",    type: "end", good: false, msg: "שיחה לא התפתחה. שאלה + עניין = שיחה שזורמת!" },
+    ],
+  },
+  {
+    id: "s6",
+    category: "בכיתה",
+    title: "עבודה בזוגות",
+    icon: "📚",
+    char: { name: "מיה", avatar: "👧", color: C.rose, trait: "שקטה, ציור וחתולים" },
+    color: C.rose, bg: C.roseL, difficulty: 1,
+    intro: "המורה חילקה זוגות לפרויקט. אתה עם מיה שאתה לא מכיר כל כך.",
+    steps: [
+      {
+        id: "n1", type: "char",
+        avatar: "👩‍🏫", name: "גב' יעל",
+        text: "אתם עם מיה! פרויקט על בעלי חיים — יש לכם 20 דקות!",
+        next: "n2",
+      },
+      {
+        id: "n2", type: "choice",
+        prompt: "מיה יושבת לידך ומחכה. מה תגיד קודם?",
+        choices: [
+          { text: "היי מיה! יש לך רעיון על איזה חיה?",      good: true,  tip: "פתיחה + שאלה = שיחה מצוינת! ✅", next: "n3_ask"    },
+          { text: "בוא נתחיל. אני רוצה דינוזאורים.",          good: false, tip: "להחליט לבד בלי לשאול — לא הוגן.", next: "n3_impose" },
+          { text: "לחכות שמיה תתחיל...",                       good: false, tip: "שניכם ממתינים — הזמן עובר!",     next: "n3_wait"  },
+        ],
+      },
+      {
+        id: "n3_ask", type: "char",
+        avatar: "👧", name: "מיה",
+        text: "היי! חשבתי על דולפינים — הם חכמים מאוד! אתה רוצה גם?",
+        next: "n4",
+      },
+      {
+        id: "n3_impose", type: "char",
+        avatar: "👧", name: "מיה",
+        text: "...אבל אני רציתי דולפינים... (נראית עצובה)",
+        next: "n3_impose2",
+      },
+      {
+        id: "n3_impose2", type: "choice",
+        prompt: "מיה רצתה משהו אחר. מה עכשיו?",
+        choices: [
+          { text: "לא ידעתי! בוא נחשוב יחד מה יהיה מגניב?",  good: true,  tip: "מוכנות להתפשר — בוגרות! 👍",        next: "n3_ask"  },
+          { text: "אני כבר החלטתי.",                            good: false, tip: "עבודת צוות = שניכם מחליטים ביחד.", next: "end_bad" },
+        ],
+      },
+      {
+        id: "n3_wait", type: "char",
+        avatar: "👧", name: "מיה",
+        text: "גם מיה מחכה... 5 דקות עוברות... הזמן אוזל!",
+        next: "n3_wait2",
+      },
+      {
+        id: "n3_wait2", type: "choice",
+        prompt: "הזמן עובר ולא התחלתם. מה עכשיו?",
+        choices: [
+          { text: "סורי! מה את חושבת שנעשה?",  good: true,  tip: "לקחת אחריות ולהתחיל — גם מאוחר! 💪", next: "n3_ask"  },
+          { text: "להמשיך לחכות...",              good: false, tip: "הזמן נגמר! לדבר קודם.",                next: "end_bad" },
+        ],
+      },
+      {
+        id: "n4", type: "choice",
+        prompt: "מיה מציעה דולפינים. מה תגיד?",
+        choices: [
+          { text: "מדהים! אני אכתוב ואת תציירי — את יודעת לצייר?",  good: true,  tip: "חלוקת תפקידים לפי כישרונות — עבודת צוות! 🌟", next: "n5" },
+          { text: "בסדר. (ולא לעשות כלום)",                            good: false, tip: '"בסדר" בלי להתחיל = עבודה לא נגמרת.',        next: "end_bad" },
+        ],
+      },
+      {
+        id: "n5", type: "char",
+        avatar: "👧", name: "מיה",
+        text: "כן! אני ממש אוהבת לצייר! 🎨 (מתחילה לצייר דולפין ענק)",
+        next: "n6",
+      },
+      {
+        id: "n6", type: "char",
+        avatar: "👩‍🏫", name: "גב' יעל",
+        text: "מה יפה! אתם עובדים כל כך טוב ביחד! 👏",
+        next: "end_good",
+      },
+      { id: "end_good", type: "end", good: true,  msg: "עבדתם ביחד נפלא! שני שותפים טובים בונים יצירה מעולה 🌟" },
+      { id: "end_bad",  type: "end", good: false, msg: "הפרויקט לא הצליח. לחלק תפקידים ולתקשר! 💙" },
+    ],
+  },
+  {
+    id: "s7",
+    category: "רגשות",
+    title: "כשחבר לא רוצה לשחק",
+    icon: "💔",
+    char: { name: "דני", avatar: "👦", color: C.mint, trait: "אנרגטי, כדורגל וקלפים" },
+    color: C.mint, bg: C.mintL, difficulty: 3,
+    intro: "ביקשת מדני לשחק ואמר שלא. אתה מרגיש רע.",
+    steps: [
+      {
+        id: "n1", type: "char",
+        avatar: "👦", name: "דני",
+        text: "לא, אני לא רוצה לשחק עכשיו.",
+        next: "n2",
+      },
+      {
+        id: "n2", type: "choice",
+        prompt: "דני דחה אותך. אתה מרגיש רע. מה תעשה?",
+        choices: [
+          { text: "בסדר... אולי בפעם הבאה?",         good: true,  tip: "לקבל 'לא' בשקט — מיומנות חשובה! ✅", next: "n3_calm"  },
+          { text: "למה?! אתה לא חבר שלי כבר!",        good: false, tip: "כעס גדול על 'לא' — יפגע בחברות.",    next: "n3_angry" },
+          { text: "ללכת לבכות לבד...",                 good: false, tip: "תחושות קשות — לגיטימי! אבל לדבר עדיף.", next: "n3_cry"   },
+        ],
+      },
+      {
+        id: "n3_calm", type: "char",
+        avatar: "👦", name: "דני",
+        text: "אולי אחרי אוכל? הראש שלי כואב קצת...",
+        next: "n4_care",
+      },
+      {
+        id: "n3_angry", type: "char",
+        avatar: "👦", name: "דני",
+        text: "מה?! לא אמרתי שאני לא חבר שלך! סתם לא רוצה עכשיו!",
+        next: "n3_angry2",
+      },
+      {
+        id: "n3_angry2", type: "choice",
+        prompt: "דני נפגע מהכעס שלך. מה עכשיו?",
+        choices: [
+          { text: "סורי דני, הגבתי בגדול. אתה בסדר?",  good: true,  tip: "לתקן אחרי שהגבת בגדול — מיומנות חשובה! 💪", next: "n4_care"  },
+          { text: "להחזיק בכעס...",                       good: false, tip: "להחזיק בכעס — יגדיל את הריב.",             next: "end_bad"  },
+        ],
+      },
+      {
+        id: "n3_cry", type: "choice",
+        prompt: "אתה מרגיש רע. מה יעזור?",
+        choices: [
+          { text: "לנשום עמוק ולחזור לדבר עם דני",  good: true,  tip: "לנשום + לחזור = חוזקה רגשית! 💪", next: "n3_calm" },
+          { text: "לספר למורה שדני פגע בי",           good: true,  tip: "לבקש עזרה ממבוגר — לגיטימי!",     next: "n4_care" },
+        ],
+      },
+      {
+        id: "n4_care", type: "choice",
+        prompt: "דני לא מרגיש טוב. מה תגיד?",
+        choices: [
+          { text: "אתה בסדר? אתה צריך משהו?",  good: true,  tip: "לדאוג לחבר — חברות אמיתית! 🌟", next: "n5_good" },
+          { text: "בסדר. (וללכת)",               good: false, tip: "מקובל לקבל, אבל אפשר להוסיף אכפתיות!", next: "end_ok" },
+        ],
+      },
+      {
+        id: "n5_good", type: "char",
+        avatar: "👦", name: "דני",
+        text: "תודה שאכפת לך! אחרי אוכל — קדימה יחד! 🙌",
+        next: "end_good",
+      },
+      { id: "end_good", type: "end", good: true,  msg: "טיפלת ברגשות קשים בחוכמה! לקבל 'לא' ולדאוג לחבר — זה גדלות 🌟" },
+      { id: "end_ok",   type: "end", good: false, msg: "קיבלת את ה'לא' — מצוין! לפעם הבאה — שאל אם הוא בסדר 💙" },
+      { id: "end_bad",  type: "end", good: false, msg: "הריב הגדיל. לנשום לפני שמדברים עוזר מאוד!" },
+    ],
+  },
+
+  /* ═══ סיטואציות חדשות ═══ */
+
+  {
+    id: "s8",
+    category: "להתחיל שיחה",
+    title: "שיחת חולין על כדורגל",
+    icon: "⚽",
+    char: { name: "תום", avatar: "🧑", color: C.sun, trait: "אוהב כדורגל וספורט" },
+    color: C.sun, bg: C.sunL, difficulty: 1,
+    intro: "תום עם חולצת מכבי תל אביב. אתה רוצה לפתוח שיחה איתו על ספורט.",
+    steps: [
+      { id: "n1", type: "char", avatar: "🧑", name: "תום", text: "(תום עומד עם חולצת כדורגל ירוקה)", next: "n2" },
+      { id: "n2", type: "choice", prompt: "איך תפתח שיחה על הכדורגל?", choices: [
+        { text: "וואו! חולצה של מכבי! ראית את המשחק האחרון?", good: true, tip: "להתייחס לפרט שאתה רואה — פותח שיחה מצוין! 🌟", next: "n3_good" },
+        { text: "אתה אוהב כדורגל?", good: true, tip: "שאלה ישירה — גם זה עובד טוב! 👍", next: "n3_yes" },
+        { text: "כדורגל זה משעמם.", good: false, tip: "להגיד שמשהו שהוא אוהב משעמם — סוגר שיחה.", next: "end_bad" },
+      ]},
+      { id: "n3_good", type: "char", avatar: "🧑", name: "תום", text: "כן!! היה מטורף!! ראית את הגול בדקה ה-90?!", next: "n4" },
+      { id: "n3_yes", type: "char", avatar: "🧑", name: "תום", text: "מאוד! מכבי הקבוצה האהובה עליי! ואצלך?", next: "n4_team" },
+      { id: "n4", type: "choice", prompt: "תום שאל על הגול. מה תגיד?", choices: [
+        { text: "כן!! היה מהמם! בוא נראה את החזרה ביוטיוב!", good: true, tip: "התלהבות משותפת + רעיון לפעילות! 🎉", next: "end_good" },
+        { text: "לא ראיתי את המשחק... אבל מספר לי!", good: true, tip: "כנות + עניין = שיחה זורמת!", next: "end_good" },
+      ]},
+      { id: "n4_team", type: "choice", prompt: "תום שאל איזו קבוצה אתה אוהב. מה תגיד?", choices: [
+        { text: "אני יותר אוהב כדורסל בעצם — אבל מעניין אותי!", good: true, tip: "כנות + פתיחות לתחומים אחרים = מצוין!", next: "end_good" },
+        { text: "אין לי קבוצה.", good: false, tip: "תשובה קצרה. אפשר להוסיף 'אבל אני אוהב לראות'!", next: "end_ok" },
+      ]},
+      { id: "end_good", type: "end", good: true, msg: "פתחת שיחה על תחביב משותף! בונה חברות 🌟⚽" },
+      { id: "end_ok", type: "end", good: false, msg: "השיחה הצליחה אבל קצרה. לפעם הבאה — להראות יותר עניין!" },
+      { id: "end_bad", type: "end", good: false, msg: "להגיד שמשהו שהוא אוהב משעמם — פוגע. תמיד אפשר להגיד 'לא משחקים'!" },
+    ],
+  },
+
+  {
+    id: "s9",
+    category: "ארוחת צהריים",
+    title: "מישהו לקח לך מהצלחת",
+    icon: "🥪",
+    char: { name: "רון", avatar: "👦", color: C.orange, trait: "שובב, חבר טוב בלב" },
+    color: C.orange, bg: C.orangeL, difficulty: 2,
+    intro: "רון לקח שניצל מהצלחת שלך בלי לשאול. אתה כועס.",
+    steps: [
+      { id: "n1", type: "char", avatar: "👦", name: "רון", text: "(לקח שניצל וצוחק) 'מהמם, תודה!'", next: "n2" },
+      { id: "n2", type: "choice", prompt: "אתה כועס. מה תעשה?", choices: [
+        { text: "רון, לא ביקשת! זה לא נעים לי.", good: true, tip: "להגיד איך הרגשת — בוגר ונכון! ✅", next: "n3_assertive" },
+        { text: "(לקחת ממנו בחזרה ולהפיל את השניצל)", good: false, tip: "תגמול = ריב. עדיף לדבר.", next: "n3_revenge" },
+        { text: "(לאכול בשקט ולהרגיש רע)", good: false, tip: "לא לדבר = הרגשות נשארות בפנים!", next: "n3_silent" },
+      ]},
+      { id: "n3_assertive", type: "char", avatar: "👦", name: "רון", text: "אופס... סורי! לא חשבתי שזה יפריע. אפשר?", next: "n4" },
+      { id: "n3_revenge", type: "char", avatar: "👦", name: "רון", text: "הי!! מה אתה עושה?! זה מטופש!", next: "end_bad" },
+      { id: "n3_silent", type: "char", avatar: "👦", name: "רון", text: "(רון ממשיך לאכול ולא יודע שאתה כועס)", next: "end_silent" },
+      { id: "n4", type: "choice", prompt: "רון מתנצל ושואל. מה תגיד?", choices: [
+        { text: "בסדר! אבל בפעם הבאה תשאל קודם 😊", good: true, tip: "סליחה + ללמד = מדהים! 🌟", next: "end_good" },
+        { text: "לא! זה שלי!", good: false, tip: "הוא כבר התנצל. סליחה היא חוכמה.", next: "end_ok" },
+      ]},
+      { id: "end_good", type: "end", good: true, msg: "טיפלת בצורה בוגרת! הבעת רגש, סלחת ולימדת 🌟" },
+      { id: "end_ok", type: "end", good: false, msg: "טוב שדיברת! לפעם הבאה — אחרי התנצלות אפשר לסלוח 💙" },
+      { id: "end_silent", type: "end", good: false, msg: "לא אמרת — לא תיקנת. תמיד אפשר לדבר על מה שמפריע!" },
+      { id: "end_bad", type: "end", good: false, msg: "תגמול לא פותר. לדבר תמיד עדיף!" },
+    ],
+  },
+
+  {
+    id: "s10",
+    category: "בכיתה",
+    title: "להגיד את הדעה שלך",
+    icon: "✋",
+    char: { name: "גב' יעל", avatar: "👩‍🏫", color: C.teal, trait: "מורה אוהבת וסבלנית" },
+    color: C.teal, bg: C.tealL, difficulty: 2,
+    intro: "המורה שאלה שאלה. אתה יודע את התשובה אבל מפחד לטעות.",
+    steps: [
+      { id: "n1", type: "char", avatar: "👩‍🏫", name: "גב' יעל", text: "מי יודע כמה רגליים יש לתמנון? תרימו יד!", next: "n2" },
+      { id: "n2", type: "choice", prompt: "אתה יודע! מה תעשה?", choices: [
+        { text: "(להרים יד)", good: true, tip: "להרים יד — הדרך הנכונה! ✅", next: "n3_called" },
+        { text: "(לצעוק 'שמונה!' בלי לחכות)", good: false, tip: "לצעוק מפריע לכיתה. עדיף יד!", next: "n3_shout" },
+        { text: "(לא להעז — מה אם אטעה?)", good: false, tip: "פחד מטעות עוצר. לנסות זה הכי חשוב!", next: "n3_fear" },
+      ]},
+      { id: "n3_called", type: "char", avatar: "👩‍🏫", name: "גב' יעל", text: "כן, [שם]! מה אתה חושב?", next: "n4" },
+      { id: "n3_shout", type: "char", avatar: "👩‍🏫", name: "גב' יעל", text: "מרימים יד בכיתה! אבל התשובה נכונה...", next: "n3_after" },
+      { id: "n3_fear", type: "char", avatar: "👩‍🏫", name: "גב' יעל", text: "מישהו? אין תשובה רעה — לנסות זה הכי חשוב!", next: "n3_encourage" },
+      { id: "n3_after", type: "choice", prompt: "המורה אמרה שצריך להרים יד. מה תגיד?", choices: [
+        { text: "סורי גברת! בפעם הבאה ארים יד.", good: true, tip: "להתנצל ולתקן — מדהים! 👍", next: "end_good" },
+        { text: "אבל ידעתי את התשובה!", good: false, tip: "לא מתווכחים על כללים.", next: "end_ok" },
+      ]},
+      { id: "n3_encourage", type: "choice", prompt: "המורה מעודדת. מה תעשה?", choices: [
+        { text: "(להרים יד בזהירות)", good: true, tip: "אומץ! לנסות גם כשמפחדים!", next: "n3_called" },
+        { text: "(להישאר בשקט)", good: false, tip: "פחד מנע. לפעם הבאה — לנסות!", next: "end_miss" },
+      ]},
+      { id: "n4", type: "choice", prompt: "ענה למורה!", choices: [
+        { text: "שמונה רגליים!", good: true, tip: "צודק! אתה אלוף 🌟", next: "end_correct" },
+        { text: "אממ... לא יודע בעצם...", good: false, tip: "ידעת! פחד נטרל אותך. בפעם הבאה — לסמוך על עצמך!", next: "end_miss" },
+      ]},
+      { id: "end_correct", type: "end", good: true, msg: "ענית נכון בכיתה! גיבור הכיתה היום 🌟" },
+      { id: "end_good", type: "end", good: true, msg: "התנצלת ולמדת — זה הדבר החשוב 🌟" },
+      { id: "end_ok", type: "end", good: false, msg: "ויכוח עם המורה לא יעזור. כללים בכיתה עוזרים לכולם." },
+      { id: "end_miss", type: "end", good: false, msg: "פחד מנע ממך. זכור — טעות זה בסדר! לפעם הבאה תנסה 💪" },
+    ],
+  },
+
+  {
+    id: "s11",
+    category: "רגשות",
+    title: "לעודד חבר עצוב",
+    icon: "🫂",
+    char: { name: "מיה", avatar: "👧", color: C.rose, trait: "עצובה כי אבדה לה הציור" },
+    color: C.rose, bg: C.roseL, difficulty: 2,
+    intro: "מיה יושבת לבד ובוכה. הציור שלה אבד.",
+    steps: [
+      { id: "n1", type: "char", avatar: "👧", name: "מיה", text: "(יושבת ובוכה בשקט)", next: "n2" },
+      { id: "n2", type: "choice", prompt: "מיה עצובה. מה תעשה?", choices: [
+        { text: "מיה, את בסדר? קרה משהו?", good: true, tip: "לשאול בעדינות — אכפתיות אמיתית! ✅", next: "n3_ask" },
+        { text: "(לעבור לידה ולהתעלם)", good: false, tip: "להתעלם מחבר עצוב — מחמיץ הזדמנות לעזור.", next: "end_ignore" },
+        { text: "מיה! למה את בוכה? מצחיק!", good: false, tip: "ללעוג לרגשות = פוגע מאוד.", next: "end_bad" },
+      ]},
+      { id: "n3_ask", type: "char", avatar: "👧", name: "מיה", text: "(מנגבת דמעות) הציור שלי אבד... עבדתי עליו שעות...", next: "n4" },
+      { id: "n4", type: "choice", prompt: "מיה איבדה את הציור. מה תגיד?", choices: [
+        { text: "אוי לא! אני אעזור לך לחפש!", good: true, tip: "להציע עזרה ספציפית — חברות אמיתית! 🌟", next: "n5" },
+        { text: "אני מבין שזה כואב. רוצה לדבר על זה?", good: true, tip: "הקשבה — מתנה גדולה!", next: "n5_listen" },
+        { text: "פשוט תציירי חדש.", good: false, tip: "להתעלם מהרגש = פוגע. קודם מקשיבים!", next: "end_ok" },
+      ]},
+      { id: "n5", type: "char", avatar: "👧", name: "מיה", text: "באמת תעזור לי?! תודה!! (פניה מאירות)", next: "end_great" },
+      { id: "n5_listen", type: "char", avatar: "👧", name: "מיה", text: "תודה שאתה מקשיב לי... זה כל כך עזר.", next: "end_great" },
+      { id: "end_great", type: "end", good: true, msg: "עזרת לחבר ברגע קשה! אכפתיות אמיתית = חברות עמוקה 🌟💙" },
+      { id: "end_ok", type: "end", good: false, msg: "ניסית לעזור! לפעם הבאה — קודם להקשיב, אחר כך פתרונות 💙" },
+      { id: "end_ignore", type: "end", good: false, msg: "החמצת הזדמנות לעזור. חבר זקוק לחבר ברגעים קשים!" },
+      { id: "end_bad", type: "end", good: false, msg: "ללעוג לרגשות = פוגע מאוד. אף פעם לא מצחיק כשמישהו עצוב!" },
+    ],
+  },
+
+  {
+    id: "s12",
+    category: "להתחיל שיחה",
+    title: "ליום הולדת של חבר",
+    icon: "🎂",
+    char: { name: "נועה", avatar: "👧", color: C.coral, trait: "חוגגת יום הולדת 9!" },
+    color: C.coral, bg: C.coralL, difficulty: 1,
+    intro: "הגעת ליום הולדת של נועה. אתה לא מכיר חצי מהילדים.",
+    steps: [
+      { id: "n1", type: "char", avatar: "👧", name: "נועה", text: "היי!! בוא תיכנס! איזה כיף שבאת!", next: "n2" },
+      { id: "n2", type: "choice", prompt: "מה הדבר הראשון שתעשה?", choices: [
+        { text: "יום הולדת שמח! הבאתי לך מתנה!", good: true, tip: "ברכה + מתנה = פתיחה מושלמת! 🎁", next: "n3_gift" },
+        { text: "(להיכנס בשקט ולחכות בצד)", good: false, tip: "עומד בצד = ירגיש מוזר. אפשר לברך!", next: "n3_quiet" },
+        { text: "איפה האוכל?", good: false, tip: "אוכל לפני שלום = לא נימוסי.", next: "end_bad" },
+      ]},
+      { id: "n3_gift", type: "char", avatar: "👧", name: "נועה", text: "וואו תודה!! בוא, אכיר אותך לכולם!", next: "n4" },
+      { id: "n3_quiet", type: "char", avatar: "👧", name: "נועה", text: "(נועה רצה לחבר אחר — את לבדך)", next: "n3_quiet2" },
+      { id: "n3_quiet2", type: "choice", prompt: "אתה לבד. מה עכשיו?", choices: [
+        { text: "(לגשת לקבוצת ילדים) היי! אני חבר של נועה!", good: true, tip: "ליזום הצגה עצמית — אומץ! 💪", next: "n4" },
+        { text: "(לעמוד בצד עד שיגמר)", good: false, tip: "יום הולדת = להכיר אנשים חדשים!", next: "end_lonely" },
+      ]},
+      { id: "n4", type: "choice", prompt: "נועה מציגה אותך לקבוצה. מה תגיד?", choices: [
+        { text: "היי כולם! איך קוראים לכם?", good: true, tip: "התעניינות + שאלה = חברים חדשים! 🎉", next: "end_great" },
+        { text: "(לחייך בלי להגיד כלום)", good: false, tip: "חיוך טוב, אבל מילה תוסיף הרבה!", next: "end_ok" },
+      ]},
+      { id: "end_great", type: "end", good: true, msg: "התחברת לכולם! יום הולדת שמח גם לך 🎉🎂" },
+      { id: "end_ok", type: "end", good: false, msg: "התעוררת בכבוד אבל היית שקט. לפעם הבאה — קצת יותר!" },
+      { id: "end_lonely", type: "end", good: false, msg: "החמצת הזדמנות. יום הולדת = פתח לחברות חדשות!" },
+      { id: "end_bad", type: "end", good: false, msg: "אוכל לא לפני נימוסים! ברכה לפני הכל 💝" },
+    ],
+  },
+
+  {
+    id: "s13",
+    category: "הפסקה",
+    title: "כשמישהו ממש מציק",
+    icon: "🛡️",
+    char: { name: "ילד שובב", avatar: "👦", color: C.coral, trait: "מציק לאחרים" },
+    color: C.coral, bg: C.coralL, difficulty: 3,
+    intro: "ילד מהכיתה לועג לך כל הזמן וצוחק עליך. זה כואב.",
+    steps: [
+      { id: "n1", type: "char", avatar: "👦", name: "המציק", text: "הא הא! ראיתם את הנעליים שלו? איזה מצחיק!", next: "n2" },
+      { id: "n2", type: "choice", prompt: "הוא לועג לך. מה תעשה?", choices: [
+        { text: "תפסיק עם זה. אני לא אוהב את זה.", good: true, tip: "להגיד 'תפסיק' בקול ברור — חזק! 💪", next: "n3_assert" },
+        { text: "(להתעלם וללכת)", good: true, tip: "להתעלם לפעמים עוצר את ההצקה.", next: "n3_ignore" },
+        { text: "(להחזיר לו ולקלל אותו)", good: false, tip: "תגמול = יותר ריב. אסור!", next: "end_fight" },
+        { text: "(לבכות ולברוח)", good: false, tip: "בכי לא עוצר אותם. עדיף לדבר עם מבוגר!", next: "n3_run" },
+      ]},
+      { id: "n3_assert", type: "char", avatar: "👦", name: "המציק", text: "אווו, רגיש... בסדר, אני אעצור.", next: "n4_after" },
+      { id: "n3_ignore", type: "char", avatar: "👦", name: "המציק", text: "(אחרי דקה — מתחיל להציק לילד אחר)", next: "n4_tell" },
+      { id: "n3_run", type: "choice", prompt: "אתה במצב קשה. מה לעשות?", choices: [
+        { text: "(ללכת ישר למורה ולספר)", good: true, tip: "מבוגר חייב לדעת — זו לא הלשנה, זו עזרה! 🛡️", next: "end_help" },
+        { text: "(להתחבא ולהמשיך לבכות)", good: false, tip: "להחזיק בכאב לבד — קשה מדי. תמיד לדבר!", next: "end_alone" },
+      ]},
+      { id: "n4_after", type: "choice", prompt: "הוא הפסיק. אבל מחר אולי שוב. מה תעשה?", choices: [
+        { text: "(לספר למורה כדי שתדע)", good: true, tip: "מבוגר חייב לדעת — לא הלשנה!", next: "end_help" },
+        { text: "(לקוות שיפסיק לבד)", good: false, tip: "בעיות לא נעלמות לבד. תמיד לדבר!", next: "end_ok" },
+      ]},
+      { id: "n4_tell", type: "choice", prompt: "הוא מציק לעוד ילד. מה תעשה?", choices: [
+        { text: "(לגשת לילד החדש: 'אתה בסדר? בוא איתי')", good: true, tip: "להגן על אחרים — גיבור אמיתי! 🌟🛡️", next: "end_hero" },
+        { text: "(להמשיך הלאה)", good: false, tip: "אם ראית — אפשר לעזור.", next: "end_ok" },
+      ]},
+      { id: "end_help", type: "end", good: true, msg: "בקשת עזרה ממבוגר — חכם ואמיץ! מציקנים לא מנצחים 🛡️" },
+      { id: "end_hero", type: "end", good: true, msg: "הגנת על ילד אחר — גיבור אמיתי! זה מה שעוצר הצקות 🌟" },
+      { id: "end_ok", type: "end", good: false, msg: "הצליח חלקית. תזכור — תמיד לספר למבוגר על הצקות 💙" },
+      { id: "end_alone", type: "end", good: false, msg: "להישאר לבד עם כאב = קשה מדי. אף פעם לא לבד! לדבר עם מבוגר 💙" },
+      { id: "end_fight", type: "end", good: false, msg: "תגמול = יותר בעיות. עדיף לדבר ולמצוא מבוגר!" },
+    ],
+  },
+
+  {
+    id: "s14",
+    category: "ארוחת צהריים",
+    title: "כשאתה לא רעב למשהו",
+    icon: "🥬",
+    char: { name: "גב' יעל", avatar: "👩‍🏫", color: C.teal, trait: "אכפתית, רוצה שכולם יהיו בסדר" },
+    color: C.teal, bg: C.tealL, difficulty: 2,
+    intro: "המורה שמה לך אוכל שאתה לא אוהב (חציל). היא מסתכלת.",
+    steps: [
+      { id: "n1", type: "char", avatar: "👩‍🏫", name: "גב' יעל", text: "תאכל את החציל, זה בריא!", next: "n2" },
+      { id: "n2", type: "choice", prompt: "אתה לא אוהב חציל. מה תעשה?", choices: [
+        { text: "סליחה גברת, אני לא אוהב חציל. אפשר רק את האורז?", good: true, tip: "לבקש בנימוס + להציע פתרון = בוגר! ✅", next: "n3_polite" },
+        { text: "אני לא אוכל את זה!", good: false, tip: "סירוב כללי = פחות נעים. עדיף להסביר!", next: "n3_refuse" },
+        { text: "(לזרוק את החציל לפח בחשאי)", good: false, tip: "לזרוק = לבזבז ולא כנה.", next: "n3_throw" },
+      ]},
+      { id: "n3_polite", type: "char", avatar: "👩‍🏫", name: "גב' יעל", text: "בסדר! לפחות תטעם רק טעימה אחת קטנה?", next: "n4" },
+      { id: "n3_refuse", type: "char", avatar: "👩‍🏫", name: "גב' יעל", text: "למה? הכל בשבילך טוב!", next: "n3_explain" },
+      { id: "n3_throw", type: "char", avatar: "👩‍🏫", name: "גב' יעל", text: "ראיתי את זה. למה לא אמרת?", next: "n3_caught" },
+      { id: "n3_explain", type: "choice", prompt: "המורה שואלת. מה תגיד?", choices: [
+        { text: "סורי, פשוט הטעם לא מתאים לי. אאכל הרבה מהאורז!", good: true, tip: "הסבר + פשרה = פתרון!", next: "n4" },
+        { text: "אני אוכל מה שאני רוצה!", good: false, tip: "חוצפה למורה = לא בסדר.", next: "end_bad" },
+      ]},
+      { id: "n3_caught", type: "choice", prompt: "המורה ראתה. מה תגיד?", choices: [
+        { text: "סורי גברת, פחדתי להגיד שאני לא אוהב.", good: true, tip: "כנות + התנצלות — אומץ!", next: "end_ok" },
+        { text: "(להכחיש)", good: false, tip: "שקר מחמיר.", next: "end_bad" },
+      ]},
+      { id: "n4", type: "choice", prompt: "המורה ביקשה טעימה. מה תעשה?", choices: [
+        { text: "בסדר, אטעם!", good: true, tip: "פשרה = הכי חכם!", next: "end_good" },
+        { text: "לא! אמרתי שלא!", good: false, tip: "לא לזוז — קצת מוגזם. טעימה קטנה לא מזיקה.", next: "end_ok" },
+      ]},
+      { id: "end_good", type: "end", good: true, msg: "טיפלת באומץ ובכבוד! פשרה = פתרון 🌟" },
+      { id: "end_ok", type: "end", good: false, msg: "הכל בסדר! לפעם הבאה — להתחיל בנימוס." },
+      { id: "end_bad", type: "end", good: false, msg: "חוצפה למורה — לא נכון. תמיד אפשר להסביר בכבוד!" },
+    ],
+  },
+
+  {
+    id: "s15",
+    category: "להתחיל שיחה",
+    title: "להזמין מישהו לפעילות",
+    icon: "🎮",
+    char: { name: "אבי", avatar: "🧒", color: C.purple, trait: "אוהב משחקי מחשב" },
+    color: C.purple, bg: C.purpleL, difficulty: 2,
+    intro: "אבי בכיתה שלך. אתה רוצה להזמין אותו לבוא לשחק אצלך אחרי הצהריים.",
+    steps: [
+      { id: "n1", type: "char", avatar: "🧒", name: "אבי", text: "(יושב לבד וקורא ספר)", next: "n2" },
+      { id: "n2", type: "choice", prompt: "מה הדרך הטובה להזמין?", choices: [
+        { text: "אבי, אתה רוצה לבוא לשחק אצלי אחר הצהריים? יש לי משחק חדש!", good: true, tip: "הזמנה ברורה + פרט מעניין = מנצח! ✅", next: "n3_clear" },
+        { text: "אולי תבוא אליי? לא יודע...", good: false, tip: "הזמנה לא ברורה = השני לא יודע מה לענות.", next: "n3_vague" },
+        { text: "(לא לשאול בכלל ולהיות מאוכזב)", good: false, tip: "החמצת הזדמנות. תמיד לשאול!", next: "end_lonely" },
+      ]},
+      { id: "n3_clear", type: "char", avatar: "🧒", name: "אבי", text: "באמת?! אני אשמח! איזה משחק?", next: "n4" },
+      { id: "n3_vague", type: "char", avatar: "🧒", name: "אבי", text: "אממ... לא יודע... מתי? איפה?", next: "n3_clear2" },
+      { id: "n3_clear2", type: "choice", prompt: "אבי לא הבין. מה תגיד?", choices: [
+        { text: "אצלי בבית, ב-5! יש משחק מגניב!", good: true, tip: "פרטים ברורים = ברור! 👍", next: "n3_clear" },
+        { text: "סתם... לא חשוב.", good: false, tip: "לוותר = להחמיץ. לנסות ברור!", next: "end_miss" },
+      ]},
+      { id: "n4", type: "choice", prompt: "אבי שואל איזה משחק. מה תגיד?", choices: [
+        { text: "מינקראפט! יש בנייה חדשה! בוא ביחד!", good: true, tip: "פרט מסקרן + הזמנה = מצוין! 🎉", next: "end_great" },
+        { text: "סתם משחק.", good: false, tip: "אבד את העניין. תמיד לתת פרט!", next: "end_ok" },
+      ]},
+      { id: "end_great", type: "end", good: true, msg: "תכננת פגישה! חברות אמיתית מתחילה ככה 🌈🎮" },
+      { id: "end_ok", type: "end", good: false, msg: "הזמנה הצליחה. לפעם הבאה — קצת יותר התלהבות!" },
+      { id: "end_miss", type: "end", good: false, msg: "ויתרת מהר מדי. הזמנה ברורה תמיד עובדת!" },
+      { id: "end_lonely", type: "end", good: false, msg: "החמצת הזדמנות. אנשים אומרים כן הרבה יותר ממה שחושבים!" },
+    ],
+  },
+
+  {
+    id: "s16",
+    category: "רגשות",
+    title: "להתמודד עם הפסד במשחק",
+    icon: "🎲",
+    char: { name: "דני", avatar: "👦", color: C.mint, trait: "ניצח אותך במשחק" },
+    color: C.mint, bg: C.mintL, difficulty: 3,
+    intro: "שיחקת עם דני במונופול. הוא ניצח. אתה מאוד מאוכזב.",
+    steps: [
+      { id: "n1", type: "char", avatar: "👦", name: "דני", text: "ניצחתי!! זה היה מטורף!", next: "n2" },
+      { id: "n2", type: "choice", prompt: "אתה מאוכזב. מה תעשה?", choices: [
+        { text: "כל הכבוד דני! שיחקת מעולה!", good: true, tip: "להכיר בניצחון של חבר — בוגר ומכובד! 🌟", next: "n3_good" },
+        { text: "המשחק לא הוגן! אתה רימית!", good: false, tip: "להאשים = לא נעים לאף אחד.", next: "n3_blame" },
+        { text: "(לזרוק את הלוח ולברוח)", good: false, tip: "התקפי זעם = פוגע בחברות.", next: "end_tantrum" },
+      ]},
+      { id: "n3_good", type: "char", avatar: "👦", name: "דני", text: "תודה! משחק מעולה היה! עוד פעם?", next: "n4" },
+      { id: "n3_blame", type: "char", avatar: "👦", name: "דני", text: "לא רימיתי! פשוט הצלחתי טוב יותר!", next: "n3_blame2" },
+      { id: "n3_blame2", type: "choice", prompt: "דני נפגע מההאשמה. מה עכשיו?", choices: [
+        { text: "סורי, היה לי קשה להפסיד. אתה צודק.", good: true, tip: "להתנצל ולהיות כן — אומץ אמיתי! 💪", next: "end_ok" },
+        { text: "המשחק טיפשי בכלל!", good: false, tip: "להעצים את הכעס — מחמיר.", next: "end_bad" },
+      ]},
+      { id: "n4", type: "choice", prompt: "דני הציע לשחק עוד. מה תגיד?", choices: [
+        { text: "כן! אבל הפעם אני אנצח! 😄", good: true, tip: "הומור + תחרות חברית = כיף!", next: "end_great" },
+        { text: "לא, אני לא אוהב להפסיד.", good: false, tip: "כנות בסדר, אבל מחמיץ הזדמנות לכיף.", next: "end_ok" },
+      ]},
+      { id: "end_great", type: "end", good: true, msg: "ספורטיביות אמיתית! הפסד זה חלק מהמשחק 🌟" },
+      { id: "end_ok", type: "end", good: false, msg: "התמודדת בסדר. בפעם הבאה — לזכור שהפסד = הזדמנות ללמוד 💙" },
+      { id: "end_tantrum", type: "end", good: false, msg: "התקפי זעם פוגעים בחברות. לנשום עמוק כשמפסידים!" },
+      { id: "end_bad", type: "end", good: false, msg: "להפנות את הכעס לשני = פוגע. הפסד זה רק משחק!" },
+    ],
+  },
+
+  {
+    id: "s17",
+    category: "בכיתה",
+    title: "להגן על חבר שמציקים לו",
+    icon: "🦸",
+    char: { name: "אבי", avatar: "🧒", color: C.purple, trait: "מציקים לו" },
+    color: C.purple, bg: C.purpleL, difficulty: 3,
+    intro: "ילדים בכיתה צוחקים על אבי כי הוא קורא ספרים בהפסקה.",
+    steps: [
+      { id: "n1", type: "char", avatar: "👦", name: "מציק", text: "תראו! אבי הקורא! איזה משעמם!", next: "n2" },
+      { id: "n2", type: "choice", prompt: "מציקים לאבי. מה תעשה?", choices: [
+        { text: "תפסיקו! כל אחד אוהב דברים אחרים!", good: true, tip: "להגן על חבר — גיבור אמיתי! 🦸", next: "n3_defend" },
+        { text: "(לעמוד בצד ולא להתערב)", good: false, tip: "שתיקה = הסכמה. עדיף להגן!", next: "n3_silent" },
+        { text: "(לצחוק יחד איתם)", good: false, tip: "להצטרף להצקה = פוגע מאוד באבי.", next: "end_join" },
+      ]},
+      { id: "n3_defend", type: "char", avatar: "👦", name: "מציק", text: "אווו, מי שמת אותך לשמור עליו?", next: "n3_defend2" },
+      { id: "n3_silent", type: "char", avatar: "🧒", name: "אבי", text: "(שותק ועצוב — מסתכל עליך מבקש עזרה)", next: "n3_silent2" },
+      { id: "n3_defend2", type: "choice", prompt: "המציק כועס עליך. מה עכשיו?", choices: [
+        { text: "אני חבר שלו! עזוב אותו!", good: true, tip: "לעמוד מאחורי החבר — מדהים! 🌟", next: "n4_ally" },
+        { text: "(להתחיל לחזור בי)", good: false, tip: "להפחיד = יוצא רע. עמוד חזק!", next: "end_ok" },
+      ]},
+      { id: "n3_silent2", type: "choice", prompt: "אבי מבקש עזרה בעיניים. מה תעשה?", choices: [
+        { text: "(לעמוד לידו) בוא אבי, נלך מפה.", good: true, tip: "עזרה שקטה — גם זה גיבורי!", next: "n4_friend" },
+        { text: "(להישאר בשקט)", good: false, tip: "החמצת הזדמנות לעזור.", next: "end_miss" },
+      ]},
+      { id: "n4_ally", type: "char", avatar: "🧒", name: "אבי", text: "(מסתכל עליך עם דמעות שמחה) תודה... ממש תודה.", next: "end_hero" },
+      { id: "n4_friend", type: "char", avatar: "🧒", name: "אבי", text: "(הולך איתך) תודה שעזרת לי...", next: "end_friend" },
+      { id: "end_hero", type: "end", good: true, msg: "גיבור אמיתי! הגנת על חבר = מעשה גדול 🦸🌟" },
+      { id: "end_friend", type: "end", good: true, msg: "עזרה שקטה היא לפעמים הכי חזקה. אבי לעולם לא ישכח 💙" },
+      { id: "end_ok", type: "end", good: false, msg: "ניסית — וזה הדבר החשוב. לפעם הבאה — להישאר חזק!" },
+      { id: "end_miss", type: "end", good: false, msg: "החמצת. לפעם הבאה — אומץ קטן עושה הבדל ענק!" },
+      { id: "end_join", type: "end", good: false, msg: "להצטרף להצקה = פוגע במישהו. אף פעם!" },
+    ],
+  },
+
+  {
+    id: "s18",
+    category: "להתחיל שיחה",
+    title: "אוטובוס בית הספר",
+    icon: "🚌",
+    char: { name: "לילי", avatar: "👧", color: C.sky, trait: "יושבת לידך, אוהבת ספרים" },
+    color: C.sky, bg: C.skyL, difficulty: 1,
+    intro: "אתה באוטובוס בדרך לבית ספר. לידך יושבת לילי שאתה לא ממש מכיר.",
+    steps: [
+      { id: "n1", type: "char", avatar: "👧", name: "לילי", text: "(קוראת ספר על דינוזאורים)", next: "n2" },
+      { id: "n2", type: "choice", prompt: "איך תפתח שיחה?", choices: [
+        { text: "וואו, ספר על דינוזאורים? אני אוהב T-Rex!", good: true, tip: "התעניינות בקריאה שלה + שיתוף = מנצח! 🌟", next: "n3_dino" },
+        { text: "(לשבת בשקט עד הסוף)", good: false, tip: "20 דקות שקט = הזדמנות מבוזבזת!", next: "end_miss" },
+        { text: "אל תקראי, זה משעמם.", good: false, tip: "להקטין משהו שהיא אוהבת = פוגע.", next: "end_bad" },
+      ]},
+      { id: "n3_dino", type: "char", avatar: "👧", name: "לילי", text: "באמת?! T-Rex הכי מגניב! קראת על הציפורניים שלו?", next: "n4" },
+      { id: "n4", type: "choice", prompt: "לילי שאלה אם קראת. מה תגיד?", choices: [
+        { text: "לא, ספרי! נשמע מעניין!", good: true, tip: "להראות עניין + לבקש מידע = שיחה זורמת! 💪", next: "n5" },
+        { text: "כן.", good: false, tip: "תשובה קצרה סוגרת שיחה.", next: "end_ok" },
+      ]},
+      { id: "n5", type: "char", avatar: "👧", name: "לילי", text: "הציפורניים היו 20 ס\"מ! ויש לי ספר עוד יותר טוב, אביא לך מחר!", next: "end_great" },
+      { id: "end_great", type: "end", good: true, msg: "התחלת חברות בנסיעה אחת! עוד יום — עוד ספר 📚🌟" },
+      { id: "end_ok", type: "end", good: false, msg: "השיחה הצליחה אבל הייתה קצרה. לפעם הבאה — שאלות חוזרות!" },
+      { id: "end_miss", type: "end", good: false, msg: "20 דקות בשקט = הזדמנות שאבדה. נסה לפתוח!" },
+      { id: "end_bad", type: "end", good: false, msg: "להקטין תחביב של מישהו = פוגע. כל אחד אוהב משהו אחר!" },
+    ],
+  },
+
+  {
+    id: "s19",
+    category: "רגשות",
+    title: "להגיד 'תודה' ולקבל מחמאה",
+    icon: "💝",
+    char: { name: "מיה", avatar: "👧", color: C.rose, trait: "מחמיאה לציור שלך" },
+    color: C.rose, bg: C.roseL, difficulty: 1,
+    intro: "ציירת ציור בכיתה. מיה ראתה ומחמיאה לך.",
+    steps: [
+      { id: "n1", type: "char", avatar: "👧", name: "מיה", text: "וואו! הציור שלך ממש יפה! איך עשית את זה?", next: "n2" },
+      { id: "n2", type: "choice", prompt: "מיה החמיאה לך. מה תגיד?", choices: [
+        { text: "תודה רבה! אני אוהב לצייר. גם הציורים שלך יפים!", good: true, tip: "תודה + מחמאה חוזרת = חמימות אמיתית! 🌟", next: "n3_good" },
+        { text: "זה כלום, סתם.", good: false, tip: "להוריד מחמאה = לא מקבל אותה. תגיד תודה!", next: "n3_dismiss" },
+        { text: "אני יודע שזה יפה.", good: false, tip: "התנשאות = פוגעת. עדיף ענווה!", next: "n3_proud" },
+      ]},
+      { id: "n3_good", type: "char", avatar: "👧", name: "מיה", text: "תודה!! בוא נצייר ביחד אחרי?", next: "end_great" },
+      { id: "n3_dismiss", type: "char", avatar: "👧", name: "מיה", text: "מה? אבל זה באמת יפה!", next: "n4_recover" },
+      { id: "n3_proud", type: "char", avatar: "👧", name: "מיה", text: "(נראית מבולבלת ויוצאת)", next: "end_ok" },
+      { id: "n4_recover", type: "choice", prompt: "מיה מתעקשת. מה תגיד?", choices: [
+        { text: "תודה אם כך! זה ממש נחמד מצידך 😊", good: true, tip: "לקבל את המחמאה — לא קל אבל חשוב!", next: "end_good" },
+        { text: "בסדר, תודה...", good: false, tip: "מקבל אבל בלי שמחה.", next: "end_ok" },
+      ]},
+      { id: "end_great", type: "end", good: true, msg: "קיבלת מחמאה בחן + הצעת לצייר ביחד! 🌟🎨" },
+      { id: "end_good", type: "end", good: true, msg: "למדת לקבל מחמאה. זו מיומנות חשובה לכל החיים!" },
+      { id: "end_ok", type: "end", good: false, msg: "התגובה הייתה חלשה. תמיד לקבל מחמאות בתודה!" },
+    ],
+  },
+
+  /* ═══ סדרה חדשה — חיי היום-יום ═══ */
+
+  {
+    id: "s20",
+    category: "החיים",
+    title: "בקופה בסופר",
+    icon: "🛒",
+    char: { name: "המוכרת", avatar: "👩", color: C.sun, trait: "סבלנית ונחמדה" },
+    color: C.sun, bg: C.sunL, difficulty: 1,
+    intro: "אתה בסופר עם אמא. היא ביקשה שתלך לקופה לשלם לבד הפעם.",
+    steps: [
+      { id: "n1", type: "char", avatar: "👩", name: "המוכרת", text: "שלום! מה שלומך?", next: "n2" },
+      { id: "n2", type: "choice", prompt: "המוכרת אמרה לך שלום. מה תגיד?", choices: [
+        { text: "שלום! בסדר תודה. אני רוצה לשלם בבקשה.", good: true, tip: "ברכה + תשובה + בקשה = מנומס מאוד! ✅", next: "n3_polite" },
+        { text: "(לא לענות, רק לשים את הקניות)", good: false, tip: "להתעלם — לא נעים. תמיד לענות!", next: "n3_silent" },
+        { text: "תני לי לשלם!", good: false, tip: "פקודה במקום בקשה — לא מנומס.", next: "n3_rude" },
+      ]},
+      { id: "n3_polite", type: "char", avatar: "👩", name: "המוכרת", text: "סך הכל 47 שקלים, בבקשה.", next: "n4" },
+      { id: "n3_silent", type: "char", avatar: "👩", name: "המוכרת", text: "(נראית קצת מבולבלת) ...אוקיי. סך הכל 47 שקלים.", next: "n4" },
+      { id: "n3_rude", type: "char", avatar: "👩", name: "המוכרת", text: "סורי, אבל בבקשה תהיה מנומס. סך הכל 47 שקלים.", next: "n3_apologize" },
+      { id: "n3_apologize", type: "choice", prompt: "המוכרת ביקשה שתהיה מנומס. מה תגיד?", choices: [
+        { text: "סליחה, התכוונתי בבקשה.", good: true, tip: "להתנצל ולתקן — בוגר! 👍", next: "n4" },
+        { text: "מה כבר אמרתי?", good: false, tip: "להתעקש — לא נעים.", next: "end_bad" },
+      ]},
+      { id: "n4", type: "choice", prompt: "אחרי ששילמת, מה תגיד?", choices: [
+        { text: "תודה רבה! יום טוב!", good: true, tip: "תודה + ברכה לפרידה = מושלם! 🌟", next: "end_great" },
+        { text: "(לקחת את השקיות וללכת בשקט)", good: false, tip: "פספסת הזדמנות לסיים יפה.", next: "end_ok" },
+      ]},
+      { id: "end_great", type: "end", good: true, msg: "ניהלת אינטראקציה בוגרת ומכובדת בסופר! 🌟🛒" },
+      { id: "end_ok", type: "end", good: false, msg: "השלמת את הקנייה. לפעם הבאה — קצת יותר נימוס לפרידה!" },
+      { id: "end_bad", type: "end", good: false, msg: "כשמישהו מבקש שתהיה מנומס — תקבל את זה ותתנצל!" },
+    ],
+  },
+
+  {
+    id: "s21",
+    category: "החיים",
+    title: "ביקור אצל רופא",
+    icon: "🏥",
+    char: { name: "ד\"ר שרה", avatar: "🧑‍⚕️", color: C.sky, trait: "רופאת ילדים נחמדה" },
+    color: C.sky, bg: C.skyL, difficulty: 2,
+    intro: "אתה אצל הרופאה לבדיקה שגרתית. אתה קצת מפחד.",
+    steps: [
+      { id: "n1", type: "char", avatar: "🧑‍⚕️", name: "ד\"ר שרה", text: "שלום! בוא תשב, אני אבדוק אותך בעדינות.", next: "n2" },
+      { id: "n2", type: "choice", prompt: "אתה מרגיש מפוחד. מה תעשה?", choices: [
+        { text: "שלום ד\"ר. אני קצת מפחד...", good: true, tip: "להגיד מה אתה מרגיש — חכם ובוגר! ✅", next: "n3_brave" },
+        { text: "(לא לדבר ולנסות להחזיק חזק)", good: false, tip: "כשמפחדים עדיף להגיד.", next: "n3_silent" },
+        { text: "אני לא רוצה!! הולך!", good: false, tip: "התקפי בכי לא יעזרו. תדבר!", next: "n3_panic" },
+      ]},
+      { id: "n3_brave", type: "char", avatar: "🧑‍⚕️", name: "ד\"ר שרה", text: "אני מבינה לגמרי! אסביר לך כל דבר לפני. אפשר?", next: "n4" },
+      { id: "n3_silent", type: "char", avatar: "🧑‍⚕️", name: "ד\"ר שרה", text: "אני רואה שאתה מתוח. תרצה שנדבר על זה?", next: "n4" },
+      { id: "n3_panic", type: "char", avatar: "🧑‍⚕️", name: "ד\"ר שרה", text: "אני יודעת שזה מפחיד. נשום עמוק איתי...", next: "n3_calm" },
+      { id: "n3_calm", type: "choice", prompt: "ד\"ר שרה הציעה לנשום. מה תעשה?", choices: [
+        { text: "(לנשום עמוק) אוקיי, אני מנסה.", good: true, tip: "לנשום עוזר להירגע!", next: "n4" },
+        { text: "(להמשיך לבכות)", good: false, tip: "לנשות שווה ניסיון.", next: "end_ok" },
+      ]},
+      { id: "n4", type: "choice", prompt: "ד\"ר שרה רוצה לבדוק לך את האוזניים. מה תגיד?", choices: [
+        { text: "אוקיי, רק תסבירי לי קודם מה את עושה.", good: true, tip: "לבקש הסבר — חכם וזכותך! 💪", next: "end_great" },
+        { text: "(לעצום עיניים ולחכות)", good: true, tip: "אומץ! גם אם מפחד.", next: "end_good" },
+      ]},
+      { id: "end_great", type: "end", good: true, msg: "התמודדת עם הפחד בחוכמה! לבקש הסבר זה הזכות שלך 🌟" },
+      { id: "end_good", type: "end", good: true, msg: "אומץ אמיתי! גם כשמפחדים אפשר לעבור הכל 💪" },
+      { id: "end_ok", type: "end", good: false, msg: "ניסית. בפעם הבאה — תזכור שלהירגע עוזר!" },
+    ],
+  },
+
+  {
+    id: "s22",
+    category: "החיים",
+    title: "שיחת טלפון לסבתא",
+    icon: "📞",
+    char: { name: "סבתא רותי", avatar: "👵", color: C.rose, trait: "אוהבת שיחות עם הנכדים" },
+    color: C.rose, bg: C.roseL, difficulty: 1,
+    intro: "אמא ביקשה ממך להתקשר לסבתא. אתה לא רגיל לדבר בטלפון.",
+    steps: [
+      { id: "n1", type: "char", avatar: "👵", name: "סבתא רותי", text: "(עונה) הלו? מי זה?", next: "n2" },
+      { id: "n2", type: "choice", prompt: "איך תפתח את השיחה?", choices: [
+        { text: "שלום סבתא! זה אני, [שם]!", good: true, tip: "ברכה + הצגה עצמית = מושלם! ✅", next: "n3_great" },
+        { text: "אני.", good: false, tip: "סבתא לא יודעת מי 'אני'. תזדהה!", next: "n3_who" },
+        { text: "(שתיקה)", good: false, tip: "סבתא חושבת שזה ניתוק.", next: "n3_silence" },
+      ]},
+      { id: "n3_great", type: "char", avatar: "👵", name: "סבתא רותי", text: "מתוק שלי!! איזה כיף ששמעתי אותך! מה שלומך?", next: "n4" },
+      { id: "n3_who", type: "char", avatar: "👵", name: "סבתא רותי", text: "מי זה 'אני'? תגיד לי איך קוראים לך.", next: "n3_great" },
+      { id: "n3_silence", type: "char", avatar: "👵", name: "סבתא רותי", text: "הלו? אני לא שומעת... אני סוגרת.", next: "end_bad" },
+      { id: "n4", type: "choice", prompt: "סבתא שאלה מה שלומך. מה תגיד?", choices: [
+        { text: "טוב מאוד! היה לי יום מצוין בבית ספר.", good: true, tip: "לשתף משהו ספציפי = שיחה זורמת!", next: "n5" },
+        { text: "טוב.", good: false, tip: "תשובה קצרה מדי.", next: "n5_short" },
+      ]},
+      { id: "n5", type: "char", avatar: "👵", name: "סבתא רותי", text: "כל כך נהדר! ספר לי מה היה?", next: "n6" },
+      { id: "n5_short", type: "char", avatar: "👵", name: "סבתא רותי", text: "...טוב? זהו? תגיד לי משהו, מתוק.", next: "n6" },
+      { id: "n6", type: "choice", prompt: "סבתא רוצה לשמוע יותר. מה תגיד?", choices: [
+        { text: "הציור שלי נבחר לתערוכה בכיתה!", good: true, tip: "לשתף הצלחות = שמח את סבתא!", next: "end_great" },
+        { text: "אהמ... לא יודע...", good: false, tip: "תחשוב על משהו! הכל מעניין את סבתא.", next: "end_ok" },
+      ]},
+      { id: "end_great", type: "end", good: true, msg: "גרמת לסבתא להיות שמחה! שיחות טלפון בונות קשרים 📞💜" },
+      { id: "end_ok", type: "end", good: false, msg: "השיחה הייתה קצרה. סבתא תמיד שמחה לשמוע פרטים!" },
+      { id: "end_bad", type: "end", good: false, msg: "תזכור — בטלפון חייב לדבר! היא לא רואה אותך." },
+    ],
+  },
+
+  {
+    id: "s23",
+    category: "החיים",
+    title: "לקבל מתנה שלא אהבת",
+    icon: "🎁",
+    char: { name: "סבתא רותי", avatar: "👵", color: C.rose, trait: "ניסתה לעשות שמח" },
+    color: C.rose, bg: C.roseL, difficulty: 3,
+    intro: "סבתא הביאה לך מתנה ליום ההולדת. פתחת... וזה גרבי צמר. לא ממש מה שרצית.",
+    steps: [
+      { id: "n1", type: "char", avatar: "👵", name: "סבתא רותי", text: "(נרגשת) אני קניתי לך גרבי צמר חמים! איזה כיף שתקבל אותם!", next: "n2" },
+      { id: "n2", type: "choice", prompt: "אתה מאוכזב. מה תעשה?", choices: [
+        { text: "תודה רבה סבתא! ממש נחמד מצידך!", good: true, tip: "תודה כנה — גם אם לא מה שרצית. סבתא חשובה! ✅", next: "n3_great" },
+        { text: "אבל אני רציתי לגו!", good: false, tip: "להגיד שזה לא מה שרצית = לפגוע.", next: "n3_hurt" },
+        { text: "(לעשות פנים מאוכזבות)", good: false, tip: "פנים מספרות הכל. סבתא תיפגע.", next: "n3_face" },
+      ]},
+      { id: "n3_great", type: "char", avatar: "👵", name: "סבתא רותי", text: "(שמחה מאוד) אני אוהבת אותך נכד יקר! יהיה לך חם בחורף!", next: "n4" },
+      { id: "n3_hurt", type: "char", avatar: "👵", name: "סבתא רותי", text: "(נפגעת) אוי... חשבתי שתשמח...", next: "n3_recover" },
+      { id: "n3_face", type: "char", avatar: "👵", name: "סבתא רותי", text: "(שמה לב) משהו לא בסדר?", next: "n3_recover" },
+      { id: "n3_recover", type: "choice", prompt: "סבתא נפגעה. מה תעשה עכשיו?", choices: [
+        { text: "סליחה סבתא! זה ממש נחמד, רק הופתעתי. תודה!", good: true, tip: "לתקן בהקדם — מציל את הרגעים האלה! 💪", next: "n3_great" },
+        { text: "(לא להגיד כלום)", good: false, tip: "סבתא תזכור את זה כפגיעה.", next: "end_bad" },
+      ]},
+      { id: "n4", type: "choice", prompt: "אמא שואלת אם תרצה ללבוש אותם. מה תגיד?", choices: [
+        { text: "כן! אני אנסה אותם עכשיו!", good: true, tip: "להראות שמחה מסבתא = מתנה גדולה! 🌟", next: "end_great" },
+        { text: "אולי אחר כך...", good: false, tip: "מקובל, אבל סבתא תשמח אם תלבש עכשיו.", next: "end_ok" },
+      ]},
+      { id: "end_great", type: "end", good: true, msg: "טיפלת ברגשות של סבתא יותר מהציפיות שלך — בגרות אמיתית! 🌟" },
+      { id: "end_ok", type: "end", good: false, msg: "אמרת תודה — זה הדבר החשוב!" },
+      { id: "end_bad", type: "end", good: false, msg: "מתנה זה גם המחשבה. תמיד תודה אמיתית — גם אם לא אהבת!" },
+    ],
+  },
+
+  {
+    id: "s24",
+    category: "החיים",
+    title: "שינה אצל חבר",
+    icon: "😴",
+    char: { name: "דני", avatar: "👦", color: C.mint, trait: "מארח שלך הלילה" },
+    color: C.mint, bg: C.mintL, difficulty: 3,
+    intro: "באת לישון בבית של דני. אתה קצת מתגעגע הביתה ומפחד מחושך.",
+    steps: [
+      { id: "n1", type: "char", avatar: "👦", name: "דני", text: "מגניב שאתה ישן פה! בוא נישן בחדר שלי!", next: "n2" },
+      { id: "n2", type: "choice", prompt: "אתה קצת מתגעגע הביתה. מה תעשה?", choices: [
+        { text: "כיף! אני שמח להיות פה. רק... יש אור קטן בחדר?", good: true, tip: "כנות + לבקש מה צריך = מצוין! ✅", next: "n3_yes" },
+        { text: "אני רוצה הביתה!! (להתחיל לבכות)", good: false, tip: "להתחיל לבכות מיד — לפני שניסית.", next: "n3_cry" },
+        { text: "(לא להגיד כלום על הפחדים)", good: false, tip: "אם לא תאמר — דני לא ידע שצריך אור.", next: "n3_dark" },
+      ]},
+      { id: "n3_yes", type: "char", avatar: "👦", name: "דני", text: "ברור! יש אור לילה קטן. גם אני אוהב אור!", next: "n4" },
+      { id: "n3_cry", type: "char", avatar: "👦", name: "דני", text: "(מבולבל) מה קרה? עוד לא קרה כלום!", next: "n3_recover" },
+      { id: "n3_dark", type: "char", avatar: "👦", name: "דני", text: "(כיבה את האור) לילה טוב!", next: "n3_dark2" },
+      { id: "n3_dark2", type: "choice", prompt: "החדר חשוך לגמרי. מה תעשה?", choices: [
+        { text: "דני, אני קצת מפחד מחושך. אפשר אור קטן?", good: true, tip: "כנות = הצלת לילה! 💪", next: "n3_yes" },
+        { text: "(לבכות בשקט)", good: false, tip: "לדבר תמיד עדיף.", next: "end_bad" },
+      ]},
+      { id: "n3_recover", type: "choice", prompt: "דני שואל מה קרה. מה תגיד?", choices: [
+        { text: "סליחה, אני קצת מתגעגע הביתה. זה הכל בסדר.", good: true, tip: "כנות עוזרת!", next: "n4" },
+        { text: "כלום!", good: false, tip: "להחביא רגשות לא עוזר.", next: "end_ok" },
+      ]},
+      { id: "n4", type: "choice", prompt: "דני הציע לדבר עד שתירדם. מה תגיד?", choices: [
+        { text: "תודה דני! בוא נדבר על המשחק שלנו.", good: true, tip: "להישען על חבר — חברות אמיתית! 🌟", next: "end_great" },
+        { text: "אני בסדר.", good: false, tip: "לקבל עזרה זה לא חולשה!", next: "end_ok" },
+      ]},
+      { id: "end_great", type: "end", good: true, msg: "התגברת על פחד עם חבר — לילה אמיץ ומיוח
